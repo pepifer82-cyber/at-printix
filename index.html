@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b2e">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232878ff'/%3E%3Cstop offset='1' stop-color='%2312b8e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='41' font-family='Arial,Helvetica,sans-serif' font-size='19' font-weight='bold' fill='%23fff' text-anchor='middle'%3EA%26T%3C/text%3E%3C/svg%3E">
-<title>A&T Printer Control</title>
+<title>A&T Printix</title>
 <style>
 :root{
   --bg:#eef4fb;--panel:#ffffffdd;--panel-solid:#fff;--line:#dce6f2;--text:#102033;
@@ -639,7 +639,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
   <div class="auth-card">
     <div class="auth-brand">
       <div class="brand-mark">A&T</div>
-      <div><h1>A&T Printer Control</h1><p>Monitoreo de impresoras en la nube</p></div>
+      <div><h1>A&T Printix</h1><p>Monitoreo de impresoras en la nube</p></div>
     </div>
     <div id="authFields" class="auth-fields">
       <div><label for="email">Email</label><input id="email" type="email" autocomplete="username" placeholder="tu@email.com"></div>
@@ -664,7 +664,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">A&T</div>
-      <div><div class="brand-title">Printer Control</div><div class="brand-sub">Cloud monitoring</div></div>
+      <div><div class="brand-title">Printix</div><div class="brand-sub">Cloud monitoring</div></div>
     </div>
     <div id="clientAccountCard" class="client-account-card hidden">
       <strong id="clientCompanyName">Mi empresa</strong>
@@ -979,7 +979,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
     </section>
 
     <section id="view-asistente" class="content-card hidden">
-      <div class="content-head"><div><h2>Asistente IA de A&T Printer Control</h2><small>Consultá impresoras, proyectos, contadores y problemas técnicos visibles para tu cuenta.</small></div><span class="biz-ai-label">IA · Acceso protegido</span></div>
+      <div class="content-head"><div><h2>Asistente IA de A&T Printix</h2><small>Consultá impresoras, proyectos, contadores y problemas técnicos visibles para tu cuenta.</small></div><span class="biz-ai-label">IA · Acceso protegido</span></div>
       <div class="biz-note"><strong>Asistente contextual y privacidad</strong><span>Responde usando los proyectos, impresoras y últimas lecturas autorizados para tu cuenta. Para generar la respuesta se envía la consulta y el contexto relevante al proveedor de IA OpenAI. A&T registra el uso para controlar el límite, pero no guarda el texto completo de las conversaciones en esta base. El asistente orienta: no ejecuta cambios por su cuenta.</span></div>
       <div class="ai-quick-prompts">
         <button class="toolbar-btn" type="button" data-ai-prompt="¿Qué impresoras aparecen desconectadas y cuál fue su último contacto?">Impresoras desconectadas</button>
@@ -1340,7 +1340,7 @@ async function loadApp(){
   }catch(e){
     $('summaryText').textContent='No se pudo cargar el proyecto.';
     $('lastSyncText').textContent='Revisá la conexión y actualizá el panel.';
-    console.error('A&T Printer Control - error cargando panel:',e);
+    console.error('A&T Printix - error cargando panel:',e);
     return true;
   }
 }
