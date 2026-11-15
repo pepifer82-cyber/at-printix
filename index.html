@@ -426,6 +426,10 @@ html[data-theme="dark"] .manual-history-note{color:#94b1d1}
 .biz-company-status{display:inline-flex;padding:4px 8px;border-radius:100px;background:#e9f8ef;color:#17663d;font-size:11px;font-weight:800}
 .biz-company-status.suspended{background:#fff1e4;color:#974b12}
 .biz-company-status.closed{background:#fce9ec;color:#963748}
+.biz-company-actions{display:flex;align-items:center;justify-content:flex-start;gap:5px;flex-wrap:nowrap;white-space:nowrap;min-width:max-content}
+.biz-company-actions .company-action-btn{display:inline-flex;align-items:center;justify-content:center;padding:5px 7px;font-size:11px;line-height:1.15;border-radius:7px}
+.biz-company-actions .company-retire-btn{background:#fff1f2;color:#a83243;border-color:#f1c6cc}
+html[data-theme="dark"] .biz-company-actions .company-retire-btn{background:#3a202b;color:#ffb8c2;border-color:#75404e}
 .biz-ai-label{font-size:11px;font-weight:850;border:1px solid var(--line);border-radius:100px;padding:7px 10px;color:var(--muted)}
 .ai-quick-prompts{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
 .ai-chat-log{display:flex;flex-direction:column;gap:12px;min-height:240px;max-height:480px;overflow:auto;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-solid)}
@@ -3789,9 +3793,9 @@ function renderCompanies(){
     const companyIdArg="'"+String(c.id).replace(/'/g,"\\'")+"'";
     const nextArg="'"+next+"'";
     const retireButton=(!internal&&status!=='closed')
-      ? '<button class="icon-btn" type="button" style="margin-left:6px;border-color:#f1c6cc;background:#fff1f2;color:#a83243" onclick="retireCompany('+companyIdArg+')">Retirar</button>'
+      ? '<button class="icon-btn company-action-btn company-retire-btn" type="button" onclick="retireCompany('+companyIdArg+')">Retirar</button>'
       : '';
-    return '<tr><td><code>'+escapeHtml(c.company_code)+'</code></td><td>'+escapeHtml(c.name)+'</td><td>'+escapeHtml(c.email||'—')+'</td><td>'+escapeHtml(sub.plan?.name||'Sin plan')+'</td><td>'+projectRows.filter(p=>p.active).length+' / '+projectRows.length+'</td><td>'+escapeHtml(license)+'</td><td><span class="biz-company-status '+escapeHtml(status)+'">'+escapeHtml(status)+'</span></td><td><button class="icon-btn" type="button"'+locked+' onclick="toggleCompanyStatus('+companyIdArg+','+nextArg+')">'+action+'</button>'+retireButton+'</td></tr>';
+    return '<tr><td><code>'+escapeHtml(c.company_code)+'</code></td><td>'+escapeHtml(c.name)+'</td><td>'+escapeHtml(c.email||'—')+'</td><td>'+escapeHtml(sub.plan?.name||'Sin plan')+'</td><td>'+projectRows.filter(p=>p.active).length+' / '+projectRows.length+'</td><td>'+escapeHtml(license)+'</td><td><span class="biz-company-status '+escapeHtml(status)+'">'+escapeHtml(status)+'</span></td><td><div class="biz-company-actions"><button class="icon-btn company-action-btn" type="button"'+locked+' onclick="toggleCompanyStatus('+companyIdArg+','+nextArg+')">'+action+'</button>'+retireButton+'</div></td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay empresas registradas.</td></tr>';
 }
 async function createCompanyFromPanel(){
