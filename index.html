@@ -3783,9 +3783,13 @@ function renderCompanies(){
     const status=c.status||'active';
     const license=sub.status?(sub.status+' · '+(sub.ends_at?new Date(sub.ends_at).toLocaleDateString():'sin vencimiento')):'Sin licencia';
     const next=status==='active'?'suspended':'active';
-    const action=status==='active'?'Suspender':status==='suspended'?'Reactivar':'Cerrada';
+    const internal=c.company_code==='AT-EMP-000001';
+    const action=status==='active'?'Suspender':status==='suspended'?'Reactivar':'Retirada';
     const locked=status==='closed'?' disabled':'';
-    return '<tr><td><code>'+escapeHtml(c.company_code)+'</code></td><td>'+escapeHtml(c.name)+'</td><td>'+escapeHtml(c.email||'—')+'</td><td>'+escapeHtml(sub.plan?.name||'Sin plan')+'</td><td>'+projectRows.filter(p=>p.active).length+' / '+projectRows.length+'</td><td>'+escapeHtml(license)+'</td><td><span class="biz-company-status '+escapeHtml(status)+'">'+escapeHtml(status)+'</span></td><td><button class="icon-btn" type="button"'+locked+' onclick="toggleCompanyStatus('+JSON.stringify(c.id)+','+JSON.stringify(next)+')">'+action+'</button></td></tr>';
+    const retireButton=(!internal&&status!=='closed')
+      ? '<button class="icon-btn" type="button" style="margin-left:6px;border-color:#f1c6cc;background:#fff1f2;color:#a83243" onclick="retireCompany('+JSON.stringify(c.id)+')">Retirar</button>'
+      : '';
+    return '<tr><td><code>'+escapeHtml(c.company_code)+'</code></td><td>'+escapeHtml(c.name)+'</td><td>'+escapeHtml(c.email||'—')+'</td><td>'+escapeHtml(sub.plan?.name||'Sin plan')+'</td><td>'+projectRows.filter(p=>p.active).length+' / '+projectRows.length+'</td><td>'+escapeHtml(license)+'</td><td><span class="biz-company-status '+escapeHtml(status)+'">'+escapeHtml(status)+'</span></td><td><button class="icon-btn" type="button"'+locked+' onclick="toggleCompanyStatus('+JSON.stringify(c.id)+','+JSON.stringify(next)+')">'+action+'</button>'+retireButton+'</td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay empresas registradas.</td></tr>';
 }
 async function createCompanyFromPanel(){
@@ -3835,6 +3839,18 @@ async function toggleCompanyStatus(companyId,status){
   if(!(await askConfirm('¿Querés '+word+' esta empresa? El inventario y el historial se conservarán.')))return;
   try{await businessAdminRequest({action:'set_company_status',company_id:companyId,status});await loadBusinessWorkspace();await loadProjects(currentProjectId)}
   catch(e){atNotify('No se pudo cambiar el estado: '+e.message)}
+}
+async function retireCompany(companyId){
+  const company=businessCompanies.find(c=>c.id===companyId);
+  if(!company||company.company_code==='AT-EMP-000001'||company.status==='closed')return;
+  const message='¿Retirar la empresa «'+company.name+'» ('+company.company_code+')? Su acceso quedará cerrado y las licencias vigentes se cancelarán. No se borrarán la empresa, los proyectos, las impresoras ni el historial. Esta acción no se puede revertir desde esta tabla.';
+  if(!(await askConfirm(message)))return;
+  try{
+    await businessAdminRequest({action:'set_company_status',company_id:companyId,status:'closed'});
+    await loadBusinessWorkspace();
+    await loadProjects(currentProjectId);
+    atNotify('Empresa retirada. Se conservaron sus datos e historial.');
+  }catch(e){atNotify('No se pudo retirar la empresa: '+e.message)}
 }
 function editBusinessPlan(planId){
   const p=businessPlans.find(x=>x.id===planId);if(!p)return;
