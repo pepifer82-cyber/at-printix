@@ -3161,8 +3161,8 @@ async function loadRetiredFleet(){
     return;
   }
   $('retiredFleetCount').textContent='Consultando el historial de '+ids.length+' proyecto(s)…';
-  $('retiredFleetGroups').innerHTML='<div class="muted">Cargando flotas retiradas…</div>';
-  body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Consultando equipos retirados individualmente…</td></tr>';
+
+  body.innerHTML='<tr><td colspan="'+(isAdmin?11:10)+'" class="empty">Consultando equipos retirados individualmente…</td></tr>';
   try{
     const fields='project_id,printer_id,agent_id,display_name,manufacturer,model,connection_type,ip_address,windows_port,usb_port,serial_number,enabled,last_status,last_seen_at,agent_code,machine_name,description,city,retired,retired_at,mac_address,page_count,reading_at,reading_status,scanner_count,counter_reading_at';
     const q='?select='+fields+'&project_id=in.('+ids.join(',')+')&order=last_seen_at.desc.nullslast';
@@ -3175,8 +3175,8 @@ async function loadRetiredFleet(){
     if(requestId!==retiredFleetRequestId)return;
     retiredFleetRows=[];
     $('retiredFleetCount').textContent='No se pudo cargar el historial: '+(e?.message||e);
-    $('retiredFleetGroups').innerHTML='<div class="empty">No se pudieron consultar las flotas archivadas. Revisá el acceso y volvé a actualizar.</div>';
-    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">No se pudieron consultar los equipos retirados individualmente.</td></tr>';
+
+    body.innerHTML='<tr><td colspan="'+(isAdmin?11:10)+'" class="empty">No se pudieron consultar los equipos retirados individualmente.</td></tr>';
   }
 }
 
