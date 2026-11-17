@@ -4317,7 +4317,7 @@ async function openRenewalRequestDialog(){
     const price=Number(p.amount)>0?formatGs(p.amount):'Precio a consultar';
     const cycle=renewalPlanLabels[p.billing_cycle]||p.billing_cycle||'';
     const limits=[p.max_projects?'Proyectos: '+p.max_projects:'Proyectos sin límite indicado',p.max_printers?'Impresoras: '+p.max_printers:'Impresoras sin límite indicado'].join(' · ');
-    return '<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+' · '+escapeHtml(price)+' · '+escapeHtml(cycle)+' · '+escapeHtml(limits)+'</option>';
+    return '<option value="'+escapeHtml(p.id)+'" '+(p.id===data.current_plan_id?'selected':'')+'>'+escapeHtml(p.name)+' · '+escapeHtml(price)+' · '+escapeHtml(cycle)+' · '+escapeHtml(limits)+'</option>';
   }).join('');
   const defaultType=accountEntitlements.license_active?'renewal':'reactivation';
   const overlay=document.createElement('div');overlay.id='renewalRequestOverlay';overlay.className='renewal-modal-back';
@@ -4335,7 +4335,10 @@ async function openRenewalRequestDialog(){
   overlay.addEventListener('click',e=>{if(e.target===overlay)closeRenewalModal()});
   document.body.appendChild(overlay);
   $('cancelRenewalRequestBtn').addEventListener('click',closeRenewalModal);
-  $('renewalRequestType').addEventListener('change',e=>{if(e.target.value==='quote')$('renewalRequestPlan').value=''});
+  $('renewalRequestType').addEventListener('change',e=>{
+    if(e.target.value==='quote'||e.target.value==='upgrade')$('renewalRequestPlan').value='';
+    else $('renewalRequestPlan').value=data.current_plan_id||'';
+  });
   $('renewalRequestForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const btn=$('submitRenewalRequestBtn'),msg=$('renewalRequestFormMsg');btn.disabled=true;btn.textContent='Enviando...';msg.textContent='Registrando tu solicitud...';
@@ -4374,9 +4377,21 @@ async function loadRenewalRequests(){
       const contact=[r.contact_email,r.contact_phone].filter(Boolean).map(escapeHtml).join('<br>')||'—';
       const payment={bank_transfer:'Transferencia',qr:'QR',cash:'Efectivo',other:'Coordinar'}[r.payment_method]||r.payment_method;
       const options=Object.entries(renewalStatusLabels).map(([value,label])=>'<option value="'+value+'" '+(r.status===value?'selected':'')+'>'+label+'</option>').join('');
-      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions"><select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
+      const prepare= r.requested_plan_id ? '<button class="icon-btn" type="button" onclick="prepareSubscriptionFromRequest('+JSON.stringify(r.company_id)+','+JSON.stringify(r.requested_plan_id)+','+Number(r.requested_amount||0)+','+JSON.stringify(r.billing_cycle||'monthly')+')">Preparar licencia</button>' : '';
+      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
     }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay solicitudes de renovación.</td></tr>';
   }catch(e){$('renewalRequestsMsg').textContent='No se pudieron cargar las solicitudes: '+e.message}
+}
+function prepareSubscriptionFromRequest(companyId,planId,amount,cycle){
+  $('subscriptionCompany').value=companyId||'';
+  $('subscriptionPlan').value=planId||'';
+  $('subscriptionPrice').value=String(Number(amount||0));
+  $('subscriptionCycle').value=cycle||'monthly';
+  $('subscriptionStatus').value='active';
+  $('subscriptionEndsAt').value='';
+  $('subscriptionMsg').textContent='Datos de la solicitud cargados. Revisá el precio y la periodicidad; luego guardá la licencia para reactivar el servicio.';
+  $('subscriptionCompany').scrollIntoView({behavior:'smooth',block:'center'});
+  atNotify('Licencia preparada. La reactivación se aplicará cuando confirmes “Guardar licencia / renovación”.','info',8000);
 }
 async function saveRenewalRequestStatus(id){
   const status=$('renewalStatus-'+id)?.value,note=$('renewalNote-'+id)?.value||'';
