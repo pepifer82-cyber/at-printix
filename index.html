@@ -1474,6 +1474,7 @@ function changeSidebarCompanyFilter(value){
     if(currentView!=='retiradas')showView('retiradas');
     else loadRetiredFleet();
   }
+  if(viewBefore==='agentes')renderGlobalAgents();
 }
 function clearProjectAgentSerial(){
   const panel=document.querySelector('.serial-panel');
