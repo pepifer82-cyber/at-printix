@@ -1790,8 +1790,22 @@ function renderGlobalAgents(){
     const sync=Math.round(configuredSyncMinutes(a));
     const usb=cfg.usb_control_enabled===true?'USB activo':cfg.usb_control_enabled===false?'USB desactivado':'USB —';
     const net=cfg.network_scan_enabled===true?'Red activa':cfg.network_scan_enabled===false?'Red desactivada':'Red —';
-    return '<tr><td>'+escapeHtml(agentCompanyName(p))+'</td><td><b>'+escapeHtml(p?.name||'Proyecto no disponible')+'</b><br><small class="muted">'+(activeProject?'Activo':'Archivado')+'</small></td><td><b>'+escapeHtml(a.agent_code||'—')+'</b></td><td>'+escapeHtml(a.machine_name||'Equipo sin nombre')+'</td><td>'+escapeHtml(a.windows_user||'—')+'</td><td>'+escapeHtml(a.app_version||'Desconocida')+'</td><td>'+statePill(state)+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td>'+sync+' min<br><small class="muted">'+escapeHtml(usb+' · '+net)+'</small></td><td>'+(activeProject?'<button class="icon-btn" type="button" onclick="openAgentProject('+JSON.stringify(String(p.id))+')">Ver proyecto</button> <button class="icon-btn" type="button" '+(a.active===false?'disabled':'')+' onclick="openGlobalAgentConfig('+JSON.stringify(String(a.id))+','+JSON.stringify(String(p.id))+')">Configurar</button>':'<span class="muted">Solo historial</span>')+'</td></tr>';
+    return '<tr><td>'+escapeHtml(agentCompanyName(p))+'</td><td><b>'+escapeHtml(p?.name||'Proyecto no disponible')+'</b><br><small class="muted">'+(activeProject?'Activo':'Archivado')+'</small></td><td><b>'+escapeHtml(a.agent_code||'—')+'</b></td><td>'+escapeHtml(a.machine_name||'Equipo sin nombre')+'</td><td>'+escapeHtml(a.windows_user||'—')+'</td><td>'+escapeHtml(a.app_version||'Desconocida')+'</td><td>'+statePill(state)+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td>'+sync+' min<br><small class="muted">'+escapeHtml(usb+' · '+net)+'</small></td><td>'+(activeProject?'<button class="icon-btn" type="button" onclick="openAgentProject('+JSON.stringify(String(p.id))+')">Ver proyecto</button> <button class="icon-btn" type="button" '+(a.active===false?'disabled':'')+' onclick="openGlobalAgentConfig('+JSON.stringify(String(a.id))+','+JSON.stringify(String(p.id))+')">Configurar</button> <button class="icon-btn" type="button" style="'+(a.active===false?'background:#e8fbf4;color:#16815e':'background:#fff1f2;color:#b42335')+'" onclick="toggleGlobalAgentStatus('+JSON.stringify(String(a.id))+','+(a.active===false?'true':'false')+')">'+(a.active===false?'Reactivar':'Suspender')+'</button>':'<span class="muted">Solo historial</span>')+'</td></tr>';
   }).join(''):'<tr><td colspan="10" class="empty">'+(term?'No hay agentes que coincidan con la búsqueda.':'No hay agentes registrados en este alcance.')+'</td></tr>';
+}
+async function toggleGlobalAgentStatus(agentId,activate){
+  const agent=globalAgentRows.find(a=>String(a.id)===String(agentId));if(!agent)return;
+  const action=activate?'reactivar':'suspender';
+  const warning=activate
+    ?'¿Reactivar '+(agent.agent_code||'este agente')+'? Podrá volver a sincronizar sus impresoras al conectarse.'
+    :'¿Suspender '+(agent.agent_code||'este agente')+'? El agente dejará de enviar datos. Las impresoras y sus contadores históricos se conservarán.';
+  if(!(await askConfirm(warning)))return;
+  try{
+    await api('/rest/v1/rpc/control_set_agent_active',{method:'POST',body:JSON.stringify({p_agent_id:agentId,p_active:activate})});
+    atNotify(activate?'Agente reactivado.':'Agente suspendido. El historial quedó conservado.');
+    await loadGlobalAgents();
+    if(String(currentProjectId)===String(agent.project_id))await loadProjectData();
+  }catch(e){atNotify('No se pudo '+action+' el agente: '+(e?.message||e),'error')}
 }
 function openAgentProject(projectId){
   const p=projects.find(x=>String(x.id)===String(projectId));
