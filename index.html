@@ -763,6 +763,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
       <button class="app-btn" data-view="duplicados" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8" y="7" width="12" height="14" rx="2" fill="currentColor" opacity=".18"/><rect x="8" y="7" width="12" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2"/></svg></div><div class="app-title">Nombres duplicados</div><div class="app-sub">Revisión y alias</div></button><button id="adminTile" class="app-btn hidden" data-view="administrar" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m10 2 4 0 1 3 2 1 3-1 2 3-2 2v3l2 2-2 3-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-3 2-2v-3L2 8l2-3 3 1 2-1 1-3Z" fill="currentColor" opacity=".18"/><path d="m10 2 4 0 1 3 2 1 3-1 2 3-2 2v3l2 2-2 3-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-3 2-2v-3L2 8l2-3 3 1 2-1 1-3Z"/><circle cx="12" cy="11.5" r="3"/></svg></div><div class="app-title">Administrar</div><div class="app-sub">Usuarios y tarifas</div></button>
       <button id="companiesTile" class="app-btn hidden" data-view="empresas" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 21V4a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 16 4v17" fill="currentColor" opacity=".18"/><path d="M4 21V4a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 16 4v17M2 21h20M8 6h1m3 0h1M8 10h1m3 0h1M8 14h1m3 0h1M10 21v-3h4v3M16 9h3a1 1 0 0 1 1 1v11"/></svg></div><div class="app-title">Empresas</div><div class="app-sub">Clientes y proyectos</div></button>
       <button id="commercialTile" class="app-btn hidden" data-view="comercial" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="14" rx="2" fill="currentColor" opacity=".18"/><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18m-11 0v2h4v-2"/></svg></div><div class="app-title">Ventas y planes</div><div class="app-sub">Licencias y cobros</div></button>
+      <button id="renewalRequestsTile" class="app-btn hidden" data-view="comercial" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v12H8l-4 4V5Z" fill="currentColor" opacity=".18"/><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg></div><div class="app-title">Solicitudes</div><div class="app-sub">Renovación y reactivación</div></button>
       <button id="assistantTile" class="app-btn" data-view="asistente" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z" fill="currentColor" opacity=".25"/><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg></div><div class="app-title">Asistente IA</div><div class="app-sub">Consultas del panel</div></button>
     </section>
 
@@ -978,7 +979,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 
     <section id="view-comercial" class="content-card hidden">
       <div class="content-head"><div><h2>Planes, licencias y ventas</h2><small>Configurá servicios, precios, límites, renovaciones y cobros. Los documentos generados aquí son registros internos, no facturas fiscales timbradas.</small></div><button class="toolbar-btn" type="button" onclick="loadCommercialWorkspace()">↻ Actualizar</button></div>
-      <div class="renewal-admin-panel">
+      <div class="renewal-admin-panel" id="renewalAdminPanel">
         <div class="content-head"><div><h3>Solicitudes de renovación y reactivación</h3><small>Pedidos enviados por todos los clientes, incluso cuando su licencia está vencida.</small></div><button id="refreshRenewalRequestsBtn" class="toolbar-btn" type="button">↻ Actualizar solicitudes</button></div>
         <div id="renewalRequestsMsg" class="muted">Cargando solicitudes...</div>
         <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Pedido</th><th>Plan / importe</th><th>Contacto</th><th>Pago</th><th>Mensaje</th><th>Estado / acción</th></tr></thead><tbody id="renewalRequestsBody"></tbody></table></div>
@@ -989,6 +990,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
           <label>WhatsApp de atención<input id="supportPhoneInput" class="toolbar-input" maxlength="40" placeholder="+595..."></label>
           <button id="saveSupportContactBtn" class="toolbar-btn primary" type="button">Guardar contacto</button>
         </div>
+        <label style="display:block;margin-top:12px">Datos de pago para enviar por WhatsApp<textarea id="supportPaymentInstructionsInput" class="toolbar-input" rows="3" maxlength="4000" placeholder="Banco, titular, cuenta, alias o instrucciones para transferencia/QR..."></textarea></label>
         <div id="supportContactMsg" class="muted"></div>
       </div>
       <h3 class="biz-section-title">Crear o editar un plan</h3>
@@ -1391,7 +1393,7 @@ async function loadApp(){
     await api('/rest/v1/rpc/control_claim_first_owner',{method:'POST',body:'{}'}).catch(()=>{});
     const adminCheck=await api('/rest/v1/rpc/control_is_global_admin',{method:'POST',body:'{}'}).catch(()=>false);
     isAdmin=adminCheck===true || (Array.isArray(adminCheck)&&adminCheck[0]===true);
-    $('adminNavBtn').classList.toggle('hidden',!isAdmin);$('adminTile').classList.toggle('hidden',!isAdmin);$('archiveProjectBtn').classList.toggle('hidden',!isAdmin);$('newSerialBtn').classList.toggle('hidden',!isAdmin);$('companiesTile').classList.toggle('hidden',!isAdmin);$('commercialTile').classList.toggle('hidden',!isAdmin);if($('adminCompanyFilterWrap'))$('adminCompanyFilterWrap').classList.toggle('hidden',!isAdmin);
+    $('adminNavBtn').classList.toggle('hidden',!isAdmin);$('adminTile').classList.toggle('hidden',!isAdmin);$('archiveProjectBtn').classList.toggle('hidden',!isAdmin);$('newSerialBtn').classList.toggle('hidden',!isAdmin);$('companiesTile').classList.toggle('hidden',!isAdmin);$('commercialTile').classList.toggle('hidden',!isAdmin);$('renewalRequestsTile').classList.toggle('hidden',!isAdmin);if($('adminCompanyFilterWrap'))$('adminCompanyFilterWrap').classList.toggle('hidden',!isAdmin);
     await loadAccountEntitlements();
     await loadProjects();
     return true;
@@ -4363,6 +4365,22 @@ async function openRenewalRequestDialog(){
     }catch(err){msg.textContent='No se pudo enviar: '+err.message;btn.disabled=false;btn.textContent='Enviar solicitud'}
   });
 }
+let supportPaymentInstructions='';
+function renewalWhatsAppLink(request){
+  const raw=String(request.contact_phone||request.company_phone||'');
+  const phone=raw.replace(/[^0-9]/g,'');
+  if(!phone)return '';
+  const company=request.company_name||'cliente';
+  const plan=request.requested_plan_name||'plan solicitado';
+  const amount=Number(request.requested_amount)>0?formatGs(request.requested_amount):'A confirmar';
+  const cycle=renewalPlanLabels[request.billing_cycle]||request.billing_cycle||'';
+  const payment=request.payment_method==='bank_transfer'?'Transferencia bancaria':request.payment_method==='qr'?'QR':request.payment_method==='cash'?'Efectivo':'A coordinar';
+  const lines=['Hola '+company+', te contactamos de A&T Printix por tu solicitud de reactivación/renovación.','Plan: '+plan,'Importe: '+amount+(cycle?' ('+cycle+')':''),'Forma de pago: '+payment];
+  if(supportPaymentInstructions.trim())lines.push('Datos e instrucciones de pago:\n'+supportPaymentInstructions.trim());
+  else lines.push('Respondé este mensaje para solicitar los datos de pago y continuar con la activación.');
+  lines.push('Una vez recibido el pago, envianos el comprobante por este medio. La licencia se habilitará luego de verificarlo.');
+  return 'https://wa.me/'+phone+'?text='+encodeURIComponent(lines.join('\n\n'));
+}
 async function loadRenewalRequests(){
   const body=$('renewalRequestsBody');if(!body)return;
   $('renewalRequestsMsg').textContent='Cargando solicitudes...';
@@ -4379,7 +4397,9 @@ async function loadRenewalRequests(){
       const payment={bank_transfer:'Transferencia',qr:'QR',cash:'Efectivo',other:'Coordinar'}[r.payment_method]||r.payment_method;
       const options=Object.entries(renewalStatusLabels).map(([value,label])=>'<option value="'+value+'" '+(r.status===value?'selected':'')+'>'+label+'</option>').join('');
       const prepare= r.requested_plan_id ? '<button class="icon-btn" type="button" onclick="prepareSubscriptionFromRequest('+JSON.stringify(r.company_id)+','+JSON.stringify(r.requested_plan_id)+','+Number(r.requested_amount||0)+','+JSON.stringify(r.billing_cycle||'monthly')+')">Preparar licencia</button>' : '';
-      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
+      const wa=renewalWhatsAppLink(r);
+      const waButton=wa?'<a class="icon-btn" target="_blank" rel="noopener" href="'+escapeHtml(wa)+'">Responder por WhatsApp</a>':'<span class="muted">Sin WhatsApp</span>';
+      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+waButton+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
     }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay solicitudes de renovación.</td></tr>';
   }catch(e){$('renewalRequestsMsg').textContent='No se pudieron cargar las solicitudes: '+e.message}
 }
@@ -4406,16 +4426,18 @@ async function loadSupportContactSettings(){
   if(!isAdmin)return;
   try{
     const data=await api('/rest/v1/rpc/control_get_support_contact',{method:'POST',body:'{}'});
-    $('supportEmailInput').value=data?.email||'';$('supportPhoneInput').value=data?.phone||'';
-    $('supportContactMsg').textContent=(data?.email||data?.phone)?'Los canales configurados aparecerán después de enviar una solicitud.':'Configurá al menos un canal para habilitar WhatsApp o correo.';
+    $('supportEmailInput').value=data?.email||'';$('supportPhoneInput').value=data?.phone||'';$('supportPaymentInstructionsInput').value=data?.payment_instructions||'';supportPaymentInstructions=data?.payment_instructions||'';
+    $('supportContactMsg').textContent=(data?.email||data?.phone)?'Canales de atención y datos de pago cargados.':'Configurá al menos un canal para habilitar WhatsApp o correo.';
   }catch(e){$('supportContactMsg').textContent='No se pudieron leer los contactos: '+e.message}
 }
 async function saveSupportContact(){
   try{
-    await api('/rest/v1/rpc/control_update_support_contact',{method:'POST',body:JSON.stringify({
-      p_email:$('supportEmailInput').value.trim()||null,p_phone:$('supportPhoneInput').value.trim()||null
+    await api('/rest/v1/rpc/control_update_support_contact_v2',{method:'POST',body:JSON.stringify({
+      p_email:$('supportEmailInput').value.trim()||null,p_phone:$('supportPhoneInput').value.trim()||null,
+      p_payment_instructions:$('supportPaymentInstructionsInput').value.trim()||null
     })});
-    $('supportContactMsg').textContent='Canales de atención guardados.';
+    supportPaymentInstructions=$('supportPaymentInstructionsInput').value.trim();
+    $('supportContactMsg').textContent='Canales de atención y datos de pago guardados.';
     atNotify('Datos de contacto de A&T actualizados.','success');
   }catch(e){$('supportContactMsg').textContent='No se pudieron guardar: '+e.message}
 }
@@ -4724,7 +4746,7 @@ $('refreshRenewalRequestsBtn').addEventListener('click',loadRenewalRequests);
 $('saveSupportContactBtn').addEventListener('click',saveSupportContact);
 $('themeToggleAuth').addEventListener('click',toggleTheme);
 $('themeToggleApp').addEventListener('click',toggleTheme);
-document.querySelectorAll('.app-btn').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+document.querySelectorAll('.app-btn').forEach(b=>b.addEventListener('click',()=>{showView(b.dataset.view);if(b.id==='renewalRequestsTile')$('renewalAdminPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}));
 $('adminNavBtn').addEventListener('click',()=>showView('administrar'));
 $('loginBtn').addEventListener('click',login);$('logoutBtn').addEventListener('click',logout);
 $('forgotPasswordBtn').addEventListener('click',requestPasswordRecovery);
