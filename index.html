@@ -860,8 +860,14 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
     </section>
 
     <section id="view-retiradas" class="content-card hidden">
-      <div class="content-head"><div><h3>Impresoras retiradas</h3><small>Se conservan los datos y el historial, pero no aparecen en el control activo.</small></div><div class="content-tools"><input id="retiredSearch" class="toolbar-input" type="search" placeholder="Buscar retirada: nombre, IP, serie, ciudad..."><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div></div>
-      <div class="table-wrap"><table><thead><tr><th>Impresora</th><th>Descripción</th><th>Ciudad</th><th>Estado anterior</th><th>Último contacto</th><th>Agente</th><th>IP</th><th>Serie de fábrica</th><th>Retirada</th><th></th></tr></thead><tbody id="retiredBody"></tbody></table></div>
+      <div class="content-head">
+        <div><h3>Impresoras retiradas</h3><small id="retiredFleetHelp">Se conservan los datos y el historial, pero no aparecen en el control activo.</small></div>
+        <div class="content-tools"><input id="retiredSearch" class="toolbar-input" type="search" placeholder="Buscar retirada: nombre, IP, serie, ciudad, cliente..."><button class="toolbar-btn" type="button" onclick="exportRetiredFleetExcel()">▣ Excel</button></div>
+      </div>
+      <div id="retiredFleetCount" class="muted" style="font-size:12px;margin:2px 0 10px">Seleccioná un proyecto o cliente para consultar las retiradas.</div>
+      <div class="table-wrap"><table><thead><tr>
+        <th class="retired-admin-col">Cliente</th><th>Proyecto</th><th>Impresora</th><th>Descripción</th><th>Ciudad</th><th>Estado anterior</th><th>Último contacto</th><th>Agente</th><th>IP</th><th>Serie de fábrica</th><th>Retirada</th><th></th>
+      </tr></thead><tbody id="retiredBody"></tbody></table></div>
     </section>
     <section id="view-administrar" class="content-card hidden">
       <div class="content-head"><div><h2>Administración exclusiva</h2><small>Solo el administrador puede crear usuarios y definir tarifas.</small></div></div>
@@ -1074,7 +1080,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 const SUPABASE_URL='https://nxpdcwoypvlcgwuvjuro.supabase.co';
 const SUPABASE_KEY='sb_publishable_fwz_qVPsE9lEp0v4XA1b2g_buuMHcin';
 const ACCESS_KEY='atpc_access_token',REFRESH_KEY='atpc_refresh_token';
-let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],agentRows=[],projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
+let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],retiredFleetRows=[],retiredFleetRequestId=0,agentRows=[],projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
 const $=id=>document.getElementById(id);
 // ===== Toasts + diálogo de confirmación (reemplazan alert() y confirm()) =====
 function toastStackEl(){
@@ -1447,6 +1453,7 @@ function renderProjectList(){
   }
 }
 function changeSidebarCompanyFilter(value){
+  const viewBefore=currentView;
   sidebarCompanyFilter=value||'all';
   const matching=projects.filter(p=>sidebarCompanyFilter==='all'||String(p.company_id)===String(sidebarCompanyFilter));
   if(currentProjectId&&!matching.some(p=>p.id===currentProjectId)){
@@ -1458,6 +1465,10 @@ function changeSidebarCompanyFilter(value){
       $('archiveProjectBtn').disabled=true;renderProjectList();renderAll();
     }
   }else renderProjectList();
+  if(viewBefore==='retiradas'){
+    if(currentView!=='retiradas')showView('retiradas');
+    else loadRetiredFleet();
+  }
 }
 function clearProjectAgentSerial(){
   const panel=document.querySelector('.serial-panel');
@@ -1530,12 +1541,13 @@ function showView(view){
   if(view==='empresas')loadBusinessWorkspace();
   if(view==='comercial')loadCommercialWorkspace();
   if(view==='seriales')loadAllProjectSerials();
+  if(view==='retiradas')loadRetiredFleet();
   $('counterQueryBtn').addEventListener('click',()=>loadCounterHistory(true));
 $('counterExcelBtn').addEventListener('click',exportCountersExcel);
 $('projectSearch').addEventListener('input',e=>{projectSearch=e.target.value;renderProjectList()});
 $('sidebarCompanyFilter').addEventListener('change',e=>changeSidebarCompanyFilter(e.target.value));
 $('inventorySearch').addEventListener('input',e=>{inventorySearch=e.target.value;renderAll()});
-$('refreshBtn').addEventListener('click',()=>currentPrinterDetailId?reloadPrinterDetail():loadProjectData());
+$('refreshBtn').addEventListener('click',()=>currentPrinterDetailId?reloadPrinterDetail():(currentView==='retiradas'?loadRetiredFleet():loadProjectData()));
 $('exportExcelBtn').addEventListener('click',exportProjectExcel);
 document.querySelectorAll('.app-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   // Al abrir Contadores, consultar el período predeterminado automáticamente.
@@ -2198,7 +2210,7 @@ async function saveManualPrinterCounter(event){
 }
 
 function openPrinterEditor(id){
-  const r=rows.find(x=>x.printer_id===id);if(!r)return;
+  const r=rows.find(x=>String(x.printer_id)===String(id))||retiredFleetRows.find(x=>String(x.printer_id)===String(id));if(!r)return;
   $('editPrinterId').value=id;
   $('editDescription').value=r.description||'';
   $('editCity').value=r.city||'';
@@ -2221,9 +2233,10 @@ async function savePrinterMeta(){
     });
     const updated=Array.isArray(result)?result[0]:result;
     if(!updated?.id)throw new Error('Supabase no devolvió la impresora actualizada.');
-    const r=rows.find(x=>x.printer_id===id);
-    if(r){r.description=updated.description;r.city=updated.city;r.updated_at=updated.updated_at}
-    closePrinterEditor();renderAll();
+    const targets=[...rows,...retiredFleetRows].filter(x=>String(x.printer_id)===String(id));
+    targets.forEach(r=>{r.description=updated.description;r.city=updated.city;r.updated_at=updated.updated_at});
+    closePrinterEditor();
+    if(currentView==='retiradas')renderRetiredFleet();else renderAll();
   }catch(e){$('printerMsg').textContent='No se pudo guardar: '+e.message}
   finally{$('savePrinterBtn').disabled=false}
 }
@@ -2296,7 +2309,7 @@ async function savePrinterInline(el){
 
 
 async function setRetired(id,retired){
-  const r=rows.find(x=>x.printer_id===id);if(!r)return;
+  const r=rows.find(x=>String(x.printer_id)===String(id))||retiredFleetRows.find(x=>String(x.printer_id)===String(id));if(!r)return;
   const action=retired?'retirar':'restaurar';
   const ok=await askConfirm(retired
     ? '¿Retirar esta impresora del control? Se conservarán sus datos e historial y quedará en la pestaña Retiradas.'
@@ -2311,8 +2324,11 @@ async function setRetired(id,retired){
     const updated=Array.isArray(result)?result[0]:result;
     if(!updated?.id)throw new Error('Supabase no devolvió cambios.');
     Object.assign(r,{retired:updated.retired,retired_at:updated.retired_at,updated_at:updated.updated_at});
-    renderAll();
-    if(currentView==='retiradas' || currentView==='inventario') await loadProjectData();
+    rows.forEach(x=>{if(String(x.printer_id)===String(id))Object.assign(x,{retired:updated.retired,retired_at:updated.retired_at,updated_at:updated.updated_at})});
+    retiredFleetRows=retiredFleetRows.filter(x=>String(x.printer_id)!==String(id)||retired);
+    if(currentView==='retiradas')await loadRetiredFleet();
+    else if(currentView==='inventario')await loadProjectData();
+    else renderAll();
   }catch(e){atNotify('No se pudo '+action+': '+e.message)}
 }
 function hasRealIp(r){
@@ -3074,26 +3090,158 @@ async function saveDuplicateRename(){
   }
 }
 
-function renderAll(){
-  // Se muestran impresoras USB y de red. Si el mismo equipo aparece
-  // dos veces (por USB y por IP), queda una sola ficha, priorizando la IP.
-  const activeRows=dedupePrinterRows(rows.filter(isActivePrinterRecord));
+
+function getRetiredScopeProjects(){
+  const available=Array.isArray(projects)?projects.filter(p=>p&&p.active!==false):[];
+  if(isAdmin&&sidebarCompanyFilter!=='all'){
+    return available.filter(p=>String(p.company_id)===String(sidebarCompanyFilter));
+  }
+  // En cuentas cliente, "projects" ya viene limitado por RLS a su empresa.
+  // En el panel maestro, "Todos los clientes" incluye todos los proyectos activos.
+  return available;
+}
+
+function buildRetiredPrinterRows(sourceRows,knownActiveRows){
+  const records=Array.isArray(sourceRows)?sourceRows:[];
+  const activeRows=Array.isArray(knownActiveRows)
+    ?knownActiveRows
+    :dedupePrinterRows(records.filter(isActivePrinterRecord));
   const activeNetworkRows=activeRows.filter(r=>!!realIpOf(r));
-  const retiredSource=rows.filter(isRetiredPrinterRecord).filter(r=>{
+  const retiredSource=records.filter(isRetiredPrinterRecord).filter(r=>{
     const conn=String(r?.connection_type||'').toLowerCase();
     const noIp=!realIpOf(r);
     const ownSerial=String(r?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
     return !activeNetworkRows.some(n=>{
       const networkSerial=String(n?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
       if(ownSerial&&networkSerial&&ownSerial===networkSerial)return true;
-      // Retired USB queue with the same display name as an active network
-      // printer is an alias: hide it from inventory, but preserve its readings.
       const sameAgent=String(r?.agent_code||r?.agent_id||'').toLowerCase()===String(n?.agent_code||n?.agent_id||'').toLowerCase();
       const sameName=String(r?.display_name||'').trim().toLowerCase()===String(n?.display_name||'').trim().toLowerCase();
-      return noIp && conn.includes('usb') && sameAgent && sameName && !(ownSerial&&networkSerial&&ownSerial!==networkSerial);
+      return noIp&&conn.includes('usb')&&sameAgent&&sameName&&!(ownSerial&&networkSerial&&ownSerial!==networkSerial);
     });
   });
-  const retiredRows=dedupePrinterRows(retiredSource);
+  return dedupePrinterRows(retiredSource);
+}
+
+async function loadRetiredFleet(){
+  const requestId=++retiredFleetRequestId;
+  const body=$('retiredBody');
+  if(!body)return;
+  const scope=getRetiredScopeProjects();
+  if(!scope.length){
+    retiredFleetRows=[];
+    renderRetiredFleet();
+    return;
+  }
+  const ids=scope.map(p=>String(p.id||'')).filter(Boolean);
+  if(!ids.length){
+    retiredFleetRows=[];
+    renderRetiredFleet();
+    return;
+  }
+  $('retiredFleetCount').textContent='Consultando las impresoras retiradas de '+ids.length+' proyecto(s)…';
+  body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Consultando retiradas de la flota…</td></tr>';
+  try{
+    const fields='project_id,printer_id,agent_id,display_name,manufacturer,model,connection_type,ip_address,windows_port,usb_port,serial_number,enabled,last_status,last_seen_at,agent_code,machine_name,description,city,retired,retired_at,mac_address';
+    const q='?select='+fields+'&project_id=in.('+ids.map(encodeURIComponent).join(',')+')&order=retired_at.desc.nullslast,last_seen_at.desc.nullslast';
+    const result=await api('/rest/v1/control_printer_dashboard'+q);
+    if(requestId!==retiredFleetRequestId)return;
+    const all=Array.isArray(result)?result.filter(isRealPrinter):[];
+    const active=dedupePrinterRows(all.filter(isActivePrinterRecord));
+    retiredFleetRows=buildRetiredPrinterRows(all,active);
+    renderRetiredFleet();
+  }catch(e){
+    if(requestId!==retiredFleetRequestId)return;
+    retiredFleetRows=[];
+    $('retiredFleetCount').textContent='No se pudieron cargar las retiradas: '+(e?.message||e);
+    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Error consultando las impresoras retiradas. Revisá los permisos de la cuenta y volvé a actualizar.</td></tr>';
+  }
+}
+
+function renderRetiredFleet(){
+  const body=$('retiredBody');
+  if(!body)return;
+  document.querySelectorAll('.retired-admin-col').forEach(el=>{el.style.display=isAdmin?'':'none'});
+  const projectById=new Map((projects||[]).map(p=>[String(p.id),p]));
+  const companyById=new Map((projectCompanies||[]).map(c=>[String(c.id),c]));
+  const term=String($('retiredSearch')?.value??retiredSearch??'').trim().toLowerCase();
+  const visible=term?retiredFleetRows.filter(r=>{
+    const p=projectById.get(String(r.project_id));
+    const c=p?companyById.get(String(p.company_id)):null;
+    return [r.display_name,r.description,r.city,r.last_status,r.agent_code,r.machine_name,r.ip_address,r.serial_number,p?.name,c?.name]
+      .some(v=>String(v??'').toLowerCase().includes(term));
+  }):retiredFleetRows;
+  const scope=getRetiredScopeProjects();
+  const count=$('retiredFleetCount');
+  if(count)count.textContent='Mostrando '+visible.length+' de '+retiredFleetRows.length+' impresora(s) retirada(s) en '+scope.length+' proyecto(s).';
+  const help=$('retiredFleetHelp');
+  if(help){
+    help.textContent=isAdmin
+      ?(sidebarCompanyFilter==='all'
+        ?'Retiradas de todos los clientes y proyectos activos. Elegí una empresa en el selector lateral para limitar la lista.'
+        :'Retiradas del cliente seleccionado. Se conservan los datos y el historial; podés restaurar cualquier equipo.')
+      :'Retiradas de tu empresa en todos tus proyectos. Se conservan los datos y el historial; podés restaurar un equipo.';
+  }
+  if(!visible.length){
+    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">'+(scope.length?'No hay impresoras retiradas para este alcance o búsqueda.':'No hay proyectos disponibles para consultar.')+'</td></tr>';
+    return;
+  }
+  body.innerHTML=visible.map(r=>{
+    const p=projectById.get(String(r.project_id));
+    const c=p?companyById.get(String(p.company_id)):null;
+    const companyName=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'—';
+    return '<tr>'
+      +'<td class="retired-admin-col">'+escapeHtml(companyName)+'</td>'
+      +'<td>'+escapeHtml(p?.name||'—')+'</td>'
+      +'<td>'+escapeHtml(r.display_name||'Impresora')+'</td>'
+      +'<td>'+escapeHtml(r.description||'—')+'</td>'
+      +'<td>'+escapeHtml(r.city||'—')+'</td>'
+      +'<td>'+escapeHtml(r.last_status||'—')+'</td>'
+      +'<td>'+escapeHtml(lastContact(r.last_seen_at))+'</td>'
+      +'<td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td>'
+      +'<td>'+escapeHtml(r.ip_address||'—')+'</td>'
+      +'<td>'+escapeHtml(r.serial_number||'—')+'</td>'
+      +'<td>'+escapeHtml(r.retired_at?new Date(r.retired_at).toLocaleString():'—')+'</td>'
+      +'<td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',false)">Restaurar</button></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportRetiredFleetExcel(){
+  if(typeof XLSX==='undefined'){atNotify('No se pudo cargar el módulo de Excel. Revisá la conexión a Internet y volvé a intentar.');return}
+  if(!retiredFleetRows.length){atNotify('No hay impresoras retiradas para exportar.');return}
+  const projectById=new Map((projects||[]).map(p=>[String(p.id),p]));
+  const companyById=new Map((projectCompanies||[]).map(c=>[String(c.id),c]));
+  const data=retiredFleetRows.map(r=>{
+    const p=projectById.get(String(r.project_id));
+    const c=p?companyById.get(String(p.company_id)):null;
+    const row={
+      Proyecto:p?.name||'',
+      Impresora:r.display_name||'',
+      Descripción:r.description||'',
+      Ciudad:r.city||'',
+      'Estado anterior':r.last_status||'',
+      'Último contacto':lastContact(r.last_seen_at),
+      Agente:r.agent_code||r.machine_name||'',
+      IP:r.ip_address||'',
+      Serie:r.serial_number||'',
+      Retirada:r.retired_at?new Date(r.retired_at).toLocaleString():''
+    };
+    if(isAdmin)row.Cliente=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'';
+    return row;
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(data);
+  fitColumns(ws);
+  XLSX.utils.book_append_sheet(wb,ws,'Retiradas');
+  const stamp=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,'AT_Printix_Retiradas_'+stamp+'.xlsx');
+}
+
+function renderAll(){
+  // Se muestran impresoras USB y de red. Si el mismo equipo aparece
+  // dos veces (por USB y por IP), queda una sola ficha, priorizando la IP.
+  const activeRows=dedupePrinterRows(rows.filter(isActivePrinterRecord));
+  const retiredRows=buildRetiredPrinterRows(rows,activeRows);
   const online=activeRows.filter(r=>printerState(r)==='online');const offline=activeRows.filter(r=>printerState(r)==='offline');const unverified=activeRows.filter(r=>printerState(r)==='unknown');
   $('mPrinters').textContent=activeRows.length;$('mOnline').textContent=online.length;$('mOffline').textContent=offline.length;$('mAgents').textContent=agentRows.length;
   $('summaryText').textContent=activeRows.length?'La flota activa tiene '+activeRows.length+' impresora(s): '+online.length+' conectada(s), '+offline.length+' desconectada(s) y '+unverified.length+' sin verificar.':(retiredRows.length?'No hay impresoras en control activo. Hay '+retiredRows.length+' retirada(s) guardada(s).':'Todavía no hay impresoras registradas para este proyecto.');
@@ -3107,9 +3255,11 @@ function renderAll(){
   $('tonerBody').innerHTML=activeRows.length?activeRows.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+pct(r.toner_black_percent)+'</td><td>'+pct(r.toner_cyan_percent)+'</td><td>'+pct(r.toner_magenta_percent)+'</td><td>'+pct(r.toner_yellow_percent)+'</td><td>'+escapeHtml(r.reading_at?r.reading_at.replace('T',' ').replace('Z',' UTC'):'—')+'</td><td>'+escapeHtml(consumablesSummary(r.consumables))+'</td><td>'+escapeHtml(detectionSummary(r))+'</td><td>'+escapeHtml(r.reading_error||r.snmp_error||'—')+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">Sin lecturas de tinta todavía.</td></tr>';
   $('offlineNote').textContent='Conectada solo significa que el agente confirmó respuesta online. Las colas de Windows en estado inactivo, sin respuesta comprobada, figuran como “Sin verificar”.';
   $('offlineBody').innerHTML=offline.length?offline.map(r=>'<tr><td>'+escapeHtml(visiblePrinterName(r))+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+statePill('offline')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(printerIpPort(r))+'</td><td>'+escapeHtml(r.city||'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No hay impresoras desconectadas.</td></tr>'; 
+  if(currentView!=='retiradas'){
   const retiredTerm=retiredSearch.trim().toLowerCase();
   const visibleRetired=retiredTerm?retiredRows.filter(r=>[r.display_name,r.description,r.city,r.last_status,r.agent_code,r.machine_name,r.ip_address,r.serial_number].some(v=>String(v??'').toLowerCase().includes(retiredTerm))):retiredRows;
   $('retiredBody').innerHTML=visibleRetired.length?visibleRetired.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+escapeHtml(r.city||'—')+'</td><td>'+escapeHtml(r.last_status||'—')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(r.ip_address||'—')+'</td><td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td>'+escapeHtml(r.retired_at?new Date(r.retired_at).toLocaleString():'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',false)">Restaurar</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No hay impresoras retiradas.</td></tr>';
+  }
   $('agentsBody').innerHTML=agentRows.length?agentRows.map(a=>'<tr><td>'+escapeHtml(a.agent_code)+'</td><td>'+escapeHtml(a.machine_name)+'</td><td>'+escapeHtml(a.windows_user)+'</td><td>'+escapeHtml(a.app_version)+'</td><td>'+statePill(agentState(a))+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td><button class="toolbar-btn primary" type="button" '+(a.active===false?'disabled':'')+' onclick="openAgentRemoteConfig(\''+escapeHtml(a.id)+'\')">Configurar</button></td></tr>').join(''):'<tr><td colspan="7" class="empty">No hay agentes registrados.</td></tr>';
   $('remoteAgentsBody').innerHTML=agentRows.length?agentRows.map(a=>'<tr><td><b>'+escapeHtml(a.agent_code||'Agente')+'</b></td><td>'+escapeHtml(a.machine_name||'Equipo sin nombre')+'</td><td>'+escapeHtml(a.windows_user||'—')+'</td><td>'+statePill(agentState(a))+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td><button class="toolbar-btn primary" type="button" style="font-weight:800" '+(a.active===false?'disabled':'')+' onclick="openAgentRemoteConfig(\''+escapeHtml(a.id)+'\')">⚙ Configurar IP y USB</button> <button class="toolbar-btn" type="button" '+(a.active===false?'disabled':'')+' onclick="sendRescanForAgent(\''+escapeHtml(a.id)+'\')">▶ Buscar ahora</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">Todavía no hay agentes registrados. Instalá el agente, cargá el serial y completá la primera sincronización.</td></tr>';
   if($('remoteAgentsMsg'))$('remoteAgentsMsg').textContent=agentRows.length?'Seleccioná Configurar IP y USB para guardar cambios o Buscar ahora para enviar una orden de escaneo. Los resultados aparecerán cuando el agente confirme.':'No hay agentes disponibles para este proyecto.';
@@ -4204,7 +4354,7 @@ $('newProjectBtn').addEventListener('click',()=>{
   $('projectModal').classList.remove('hidden');$('projectNameInput').focus()
 });
 $('archiveProjectBtn').addEventListener('click',archiveProject);
-$('retiredSearch').addEventListener('input',e=>{retiredSearch=e.target.value;renderAll()});
+$('retiredSearch').addEventListener('input',e=>{retiredSearch=e.target.value;if(currentView==='retiradas')renderRetiredFleet();else renderAll()});
 $('newUserProject').addEventListener('change',loadManagedUsers);$('refreshUsersBtn').addEventListener('click',loadManagedUsers);$('freePagesInput').addEventListener('input',updatePriceEstimate);$('pricePerPageInput').addEventListener('input',updatePriceEstimate);$('samplePagesInput').addEventListener('input',updatePriceEstimate);$('savePricingBtn').addEventListener('click',savePricing);$('createUserBtn').addEventListener('click',createManagedUser);
 $('cancelProjectBtn').addEventListener('click',()=>{$('projectModal').classList.add('hidden')});
 $('createProjectBtn').addEventListener('click',createProject);$('copySerialBtn').addEventListener('click',copySerial);$('newSerialBtn').addEventListener('click',generateSerial);
