@@ -3225,10 +3225,12 @@ function renderRetiredFleet(){
     body.innerHTML='<tr><td colspan="'+(isAdmin?11:10)+'" class="empty">'+(scope.length?'No hay equipos retirados en este alcance.':'No hay proyectos disponibles para consultar.')+'</td></tr>';
     return;
   }
-  const targetOptions=targetProjects.map(p=>'<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name||'Proyecto sin nombre')+'</option>').join('');
   body.innerHTML=visible.map(r=>{
     const p=projectById.get(String(r.project_id));
     const c=p?companyById.get(String(p.company_id)):null;
+    // Solo se ofrecen destinos activos de la misma empresa de la impresora.
+    const rowTargetProjects=targetProjects.filter(tp=>p&&String(tp.company_id)===String(p.company_id));
+    const rowTargetOptions=rowTargetProjects.map(tp=>'<option value="'+escapeHtml(tp.id)+'">'+escapeHtml(tp.name||'Proyecto sin nombre')+'</option>').join('');
     const companyName=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'—';
     const model=[r.manufacturer,r.model].filter(Boolean).join(' · ')||'—';
     const connection=[connectionLabel(r),printerIpPort(r)].filter(v=>v&&v!=='—').join(' · ')||'—';
@@ -3237,11 +3239,11 @@ function renderRetiredFleet(){
     const removedAt=r.fleet_archived?(r.fleet_archived_at||p?.updated_at):r.retired_at;
     const type=r.fleet_archived?'Flota completa':'Retirada individual';
     const selectHtml=canReinsert
-      ?(targetProjects.length
-        ?'<select class="toolbar-input retired-target-select" data-printer-id="'+escapeHtml(r.printer_id)+'"><option value="">Elegir proyecto activo…</option>'+targetOptions+'</select>'
-        :'<span class="muted">No hay proyectos activos disponibles</span>')
+      ?(rowTargetProjects.length
+        ?'<select class="toolbar-input retired-target-select" data-printer-id="'+escapeHtml(r.printer_id)+'"><option value="">Elegir proyecto activo…</option>'+rowTargetOptions+'</select>'
+        :'<span class="muted">No hay proyectos activos en esta empresa</span>')
       :'<span class="muted">Solo propietario o administrador</span>';
-    const buttonHtml=canReinsert&&targetProjects.length
+    const buttonHtml=canReinsert&&rowTargetProjects.length
       ?'<button class="toolbar-btn primary reinsert-printer-btn" type="button" data-printer-id="'+escapeHtml(r.printer_id)+'" disabled>Reinsertar</button>'
       :'';
     return '<tr>'
