@@ -4278,20 +4278,20 @@ function renewalDaysRemaining(endValue){
 }
 function renderClientRenewalNotice(data){
   const box=$('clientRenewalNotice');if(!box)return;
-  if(isAdmin||!data||!data.company_id||!data.ends_at){box.classList.add('hidden');return}
+  if(isAdmin||!data||!data.company_id){box.classList.add('hidden');return}
   const remaining=renewalDaysRemaining(data.ends_at);
-  const expired=!data.license_active||remaining===null||remaining<=0||data.company_status!=='active';
-  if(!expired&&remaining>7){box.classList.add('hidden');return}
+  const expired=!data.license_active||data.company_status!=='active'||(remaining!==null&&remaining<=0);
+  if(!expired&&(remaining===null||remaining>7)){box.classList.add('hidden');return}
   box.classList.remove('hidden','is-warning','is-urgent','is-expired');
-  const endText=new Date(data.ends_at).toLocaleDateString('es-PY');
+  const endText=data.ends_at?new Date(data.ends_at).toLocaleDateString('es-PY'):'sin fecha registrada';
   let title='Tu licencia está próxima a vencer',message='Tu servicio vence el '+endText+'. Podés anticipar la renovación para evitar interrupciones.',eyebrow='Aviso de licencia',button='Consultar renovación';
   if(expired){
     box.classList.add('is-expired');eyebrow='Servicio suspendido';title='Tu licencia necesita reactivación';
-    message='El servicio está suspendido. Tus proyectos, impresoras e historial se conservan. Enviá una solicitud para que A&T revise la reactivación.';
+    message='El servicio está suspendido o vencido. Tus proyectos, impresoras e historial se conservan. Enviá una solicitud para que A&T revise la reactivación.';
     button='Solicitar reactivación';
   }else if(remaining<=1){
     box.classList.add('is-urgent');eyebrow='Aviso urgente · vence mañana';title='Tu licencia está por vencer';
-    message='Queda '+remaining+' día. Solicitá la renovación ahora para evitar que el servicio se suspenda.';
+    message='Queda 1 día para el vencimiento. Solicitá la renovación ahora para evitar que el servicio se suspenda.';
     button='Renovar ahora';
   }else if(remaining<=3){
     box.classList.add('is-warning');eyebrow='Aviso importante · '+remaining+' días';title='Tu licencia vence pronto';
