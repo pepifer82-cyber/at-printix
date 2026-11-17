@@ -815,8 +815,10 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
     </section>
 
     <section id="view-agentes" class="content-card hidden">
-      <div class="content-head"><div><h3>Agentes del proyecto</h3><small>Estado de los equipos. Configurá IP, rangos y USB por instalación.</small></div><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div>
-      <div class="table-wrap"><table><thead><tr><th>Agente</th><th>Equipo</th><th>Usuario Windows</th><th>Versión</th><th>Estado</th><th>Último contacto</th><th>Control remoto</th></tr></thead><tbody id="agentsBody"></tbody></table></div>
+      <div class="content-head"><div><h3>Todos los agentes</h3><small id="agentsScopeHelp">Agentes de las empresas y proyectos dentro de tu cuenta.</small></div><div class="content-tools"><input id="agentsSearch" class="toolbar-input" type="search" placeholder="Buscar empresa, proyecto, PC o versión..."><button class="toolbar-btn" type="button" onclick="loadGlobalAgents()">↻ Actualizar</button><button class="toolbar-btn primary" type="button" onclick="exportAgentsExcel()">▣ Excel</button></div></div>
+      <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin:12px 0"><div class="insight"><strong id="agentsTotal">0</strong><span>Agentes registrados</span></div><div class="insight"><strong id="agentsOnline">0</strong><span>Conectados</span></div><div class="insight"><strong id="agentsOffline">0</strong><span>Desconectados / demorados</span></div><div class="insight"><strong id="agentsSuspended">0</strong><span>Suspendidos</span></div></div>
+      <div id="agentsMsg" class="muted" style="font-size:12px;margin:4px 0 10px">Cargando agentes...</div>
+      <div class="table-wrap"><table><thead><tr><th>Empresa</th><th>Proyecto</th><th>Agente / Código</th><th>Computadora</th><th>Usuario Windows</th><th>Versión</th><th>Estado</th><th>Último contacto</th><th>Configuración</th><th>Acciones</th></tr></thead><tbody id="agentsBody"></tbody></table></div>
     </section>
 
     <section id="view-control-remoto" class="content-card hidden">
@@ -1080,7 +1082,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 const SUPABASE_URL='https://nxpdcwoypvlcgwuvjuro.supabase.co';
 const SUPABASE_KEY='sb_publishable_fwz_qVPsE9lEp0v4XA1b2g_buuMHcin';
 const ACCESS_KEY='atpc_access_token',REFRESH_KEY='atpc_refresh_token';
-let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],archivedProjects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],retiredFleetRows=[],retiredFleetRequestId=0,agentRows=[],projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
+let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],archivedProjects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],retiredFleetRows=[],retiredFleetRequestId=0,agentRows=[],globalAgentRows=[],globalAgentRequestId=0,globalAgentSearch='',projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
 const $=id=>document.getElementById(id);
 // ===== Toasts + diálogo de confirmación (reemplazan alert() y confirm()) =====
 function toastStackEl(){
@@ -1534,7 +1536,7 @@ function openProject(id){
   showView('resumen');renderProjectList();loadProjectAgentSerial(id);loadProjectData();
 }
 function showView(view){
-  if(!isAdmin&&['agentes'].includes(view)){showView('resumen');return}
+  if(view==='agentes')loadGlobalAgents();
   closePrinterDetailLayout();
   currentView=view;
   ['resumen','inventario','seriales','tinta','alertas','desconectadas','agentes','control-remoto','contadores','retiradas','duplicados','administrar','empresas','comercial','asistente'].forEach(v=>{const el=$('view-'+v);if(el)el.classList.toggle('hidden',v!==view)});
@@ -1688,6 +1690,7 @@ async function loadProjectData(){
     agentRows=await api('/rest/v1/printer_agents?select=id,agent_code,machine_name,windows_user,app_version,active,last_seen_at,remote_config&project_id=eq.'+encodeURIComponent(currentProjectId)+'&order=last_seen_at.desc.nullslast');agentRows=Array.isArray(agentRows)?agentRows:[];
     renderAll();
     if(currentView==='seriales')await loadAllProjectSerials();
+    if(currentView==='agentes')await loadGlobalAgents();
     await loadAlertSettings();
   }catch(e){
     console.error('Error cargando impresoras del proyecto:',e);
@@ -1746,6 +1749,74 @@ function configuredSyncMinutes(agent){const seconds=Number(agent?.remote_config?
 function printerOfflineLimitMinutes(r){const agent=agentRows.find(a=>String(a.id)===String(r.agent_id));return Math.max(15,configuredSyncMinutes(agent)+10)}
 function printerState(r){if(isRetiredPrinterRecord(r))return 'disabled';if(r.enabled===false)return 'disabled';const states=[r.reading_status,r.last_status].map(v=>String(v||'').trim().toLowerCase()).filter(Boolean);if(states.some(s=>s.includes('offline')||s.includes('descon')||s==='unreachable'||s==='not available'))return 'offline';if(ageMinutes(r.last_seen_at)>printerOfflineLimitMinutes(r))return 'offline';if(states.some(s=>/^(online|connected|conectada|conectado|reachable)$/i.test(s)))return 'online';return 'unknown'}
 function agentState(a){if(a.active===false)return 'disabled';const m=ageMinutes(a.last_seen_at),interval=configuredSyncMinutes(a);return m<=Math.max(3,interval)?'online':m<=Math.max(15,interval+10)?'stale':'offline'}
+function agentCompanyName(project){
+  if(!isAdmin)return accountEntitlements?.company_name||'Mi empresa';
+  if(!project)return 'Empresa no identificada';
+  const company=projectCompanies.find(x=>String(x.id)===String(project.company_id));
+  return company?(company.company_code==='AT-EMP-000001'?'Operación interna A&T':company.name):'Empresa no identificada';
+}
+async function loadGlobalAgents(){
+  const body=$('agentsBody');if(!body)return;
+  const requestId=++globalAgentRequestId;
+  body.innerHTML='<tr><td colspan="10" class="empty">Consultando agentes...</td></tr>';
+  try{
+    const result=await api('/rest/v1/printer_agents?select=id,project_id,agent_code,machine_name,windows_user,app_version,active,last_seen_at,created_at,updated_at,remote_config&order=last_seen_at.desc.nullslast');
+    if(requestId!==globalAgentRequestId)return;
+    globalAgentRows=Array.isArray(result)?result:[];
+    renderGlobalAgents();
+  }catch(e){
+    if(requestId!==globalAgentRequestId)return;
+    globalAgentRows=[];$('agentsMsg').textContent='No se pudieron cargar los agentes: '+(e?.message||e);
+    body.innerHTML='<tr><td colspan="10" class="empty">Revisá la conexión y volvé a actualizar.</td></tr>';
+  }
+}
+function renderGlobalAgents(){
+  const body=$('agentsBody');if(!body)return;
+  const projectMap=new Map([...(projects||[]),...(archivedProjects||[])].map(p=>[String(p.id),p]));
+  let scope=globalAgentRows.slice();
+  if(isAdmin&&sidebarCompanyFilter!=='all')scope=scope.filter(a=>String(projectMap.get(String(a.project_id))?.company_id)===String(sidebarCompanyFilter));
+  const term=String($('agentsSearch')?.value??globalAgentSearch).trim().toLowerCase();
+  const visible=term?scope.filter(a=>{const p=projectMap.get(String(a.project_id));return [a.agent_code,a.machine_name,a.windows_user,a.app_version,p?.name,agentCompanyName(p),a.id].some(v=>String(v??'').toLowerCase().includes(term))}):scope;
+  const states=scope.map(agentState);
+  $('agentsTotal').textContent=scope.length;
+  $('agentsOnline').textContent=states.filter(s=>s==='online').length;
+  $('agentsOffline').textContent=states.filter(s=>s==='offline'||s==='stale').length;
+  $('agentsSuspended').textContent=states.filter(s=>s==='disabled').length;
+  $('agentsScopeHelp').textContent=isAdmin?(sidebarCompanyFilter==='all'?'Vista global: agentes de todas las empresas y sus proyectos, incluidos los archivados.':'Agentes del cliente seleccionado, incluidos sus proyectos archivados.'):'Agentes de tu empresa, incluidos los proyectos archivados.';
+  $('agentsMsg').textContent='Mostrando '+visible.length+' de '+scope.length+' agente(s). Los registros históricos se conservan aunque el proyecto esté archivado.';
+  body.innerHTML=visible.length?visible.map(a=>{
+    const p=projectMap.get(String(a.project_id)),activeProject=!!p&&p.active!==false,state=agentState(a),cfg=a.remote_config||{};
+    const sync=Math.round(configuredSyncMinutes(a));
+    const usb=cfg.usb_control_enabled===true?'USB activo':cfg.usb_control_enabled===false?'USB desactivado':'USB —';
+    const net=cfg.network_scan_enabled===true?'Red activa':cfg.network_scan_enabled===false?'Red desactivada':'Red —';
+    return '<tr><td>'+escapeHtml(agentCompanyName(p))+'</td><td><b>'+escapeHtml(p?.name||'Proyecto no disponible')+'</b><br><small class="muted">'+(activeProject?'Activo':'Archivado')+'</small></td><td><b>'+escapeHtml(a.agent_code||'—')+'</b></td><td>'+escapeHtml(a.machine_name||'Equipo sin nombre')+'</td><td>'+escapeHtml(a.windows_user||'—')+'</td><td>'+escapeHtml(a.app_version||'Desconocida')+'</td><td>'+statePill(state)+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td>'+sync+' min<br><small class="muted">'+escapeHtml(usb+' · '+net)+'</small></td><td>'+(activeProject?'<button class="icon-btn" type="button" onclick="openAgentProject('+JSON.stringify(String(p.id))+')">Ver proyecto</button> <button class="icon-btn" type="button" '+(a.active===false?'disabled':'')+' onclick="openGlobalAgentConfig('+JSON.stringify(String(a.id))+','+JSON.stringify(String(p.id))+')">Configurar</button>':'<span class="muted">Solo historial</span>')+'</td></tr>';
+  }).join(''):'<tr><td colspan="10" class="empty">'+(term?'No hay agentes que coincidan con la búsqueda.':'No hay agentes registrados en este alcance.')+'</td></tr>';
+}
+function openAgentProject(projectId){
+  const p=projects.find(x=>String(x.id)===String(projectId));
+  if(!p){atNotify('Este agente pertenece a un proyecto archivado. El historial se conserva, pero no se puede abrir como proyecto activo.');return}
+  openProject(String(projectId));
+}
+async function openGlobalAgentConfig(agentId,projectId){
+  const p=projects.find(x=>String(x.id)===String(projectId));
+  if(!p){atNotify('No se puede configurar un agente de un proyecto archivado.');return}
+  openProject(String(projectId));
+  await loadProjectData();
+  await openAgentRemoteConfig(String(agentId));
+}
+function exportAgentsExcel(){
+  if(typeof XLSX==='undefined'){atNotify('No se pudo cargar Excel.');return}
+  const projectMap=new Map([...(projects||[]),...(archivedProjects||[])].map(p=>[String(p.id),p]));
+  let scope=globalAgentRows.slice();
+  if(isAdmin&&sidebarCompanyFilter!=='all')scope=scope.filter(a=>String(projectMap.get(String(a.project_id))?.company_id)===String(sidebarCompanyFilter));
+  const data=scope.map(a=>{
+    const p=projectMap.get(String(a.project_id)),r=a.remote_config||{},s=agentState(a);
+    return {Empresa:agentCompanyName(p),Proyecto:p?.name||'',EstadoProyecto:p?.active===false?'Archivado':'Activo',Agente:a.agent_code||'',Computadora:a.machine_name||'',UsuarioWindows:a.windows_user||'',Version:a.app_version||'',Estado:s==='online'?'Conectado':s==='stale'?'Sincronizando':s==='offline'?'Desconectado':'Suspendido',UltimoContacto:a.last_seen_at||'',IntervaloMinutos:Math.round(configuredSyncMinutes(a)),USB:r.usb_control_enabled===true?'Activo':r.usb_control_enabled===false?'Desactivado':'Sin informar',BusquedaRed:r.network_scan_enabled===true?'Activa':r.network_scan_enabled===false?'Desactivada':'Sin informar',UltimoReporte:r.reported_at||''};
+  });
+  const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(data);fitColumns(ws);XLSX.utils.book_append_sheet(wb,ws,'Todos los agentes');
+  XLSX.writeFile(wb,'AT_Printix_Agentes_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
 function statePill(state){const label={online:'Conectada',offline:'Desconectada',stale:'Sincronizando',unknown:'Sin verificar',disabled:'Deshabilitada'}[state]||state;return '<span class="pill '+state+'">'+escapeHtml(label)+'</span>'}
 function staleUpdateInfo(value){
   if(!value)return {label:'Sin registro',stale:true};
@@ -4116,7 +4187,7 @@ function applyAccountEntitlements(data){
   // cliente solo con los proyectos de su empresa (RLS de control_projects).
   const serialesTile=document.querySelector('.app-btn[data-view="seriales"]');
   if(serialesTile)serialesTile.classList.remove('hidden');
-  document.querySelectorAll('[data-view="agentes"]').forEach(el=>el.classList.toggle('hidden',!isAdmin));
+  document.querySelectorAll('[data-view="agentes"]').forEach(el=>el.classList.remove('hidden'));
   const aiTile=$('assistantTile');if(aiTile)aiTile.classList.toggle('hidden',!enabled('ai'));
   document.querySelectorAll('#exportExcelBtn,button[onclick*="exportProjectExcel"],button[onclick*="exportCountersExcel"]')
     .forEach(el=>el.classList.toggle('hidden',!enabled('exports')));
@@ -4453,6 +4524,7 @@ $('newProjectBtn').addEventListener('click',()=>{
 });
 $('archiveProjectBtn').addEventListener('click',archiveProject);
 $('retiredSearch').addEventListener('input',e=>{retiredSearch=e.target.value;if(currentView==='retiradas')renderRetiredFleet();else renderAll()});
+$('agentsSearch').addEventListener('input',e=>{globalAgentSearch=e.target.value;renderGlobalAgents()});
 $('newUserProject').addEventListener('change',loadManagedUsers);$('refreshUsersBtn').addEventListener('click',loadManagedUsers);$('freePagesInput').addEventListener('input',updatePriceEstimate);$('pricePerPageInput').addEventListener('input',updatePriceEstimate);$('samplePagesInput').addEventListener('input',updatePriceEstimate);$('savePricingBtn').addEventListener('click',savePricing);$('createUserBtn').addEventListener('click',createManagedUser);
 $('cancelProjectBtn').addEventListener('click',()=>{$('projectModal').classList.add('hidden')});
 $('createProjectBtn').addEventListener('click',createProject);$('copySerialBtn').addEventListener('click',copySerial);$('newSerialBtn').addEventListener('click',generateSerial);
