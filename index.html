@@ -451,6 +451,34 @@ html[data-theme="dark"] .ai-message.assistant{background:#142c45;color:#e0edfa}
 .client-account-card.license-off{border-color:#e9bd86;background:#fff8ee}
 html[data-theme="dark"] .client-account-card.license-off{background:#302519;border-color:#75532d}
 
+.client-renewal-notice{margin:0 0 16px;padding:16px 18px;border:1px solid #9cc4e8;border-radius:15px;background:linear-gradient(115deg,rgba(219,237,255,.92),rgba(240,247,255,.96));display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 8px 22px rgba(40,85,130,.08)}
+.client-renewal-notice.is-warning{border-color:#d8a34a;background:linear-gradient(115deg,#fff6df,#fffaf0)}
+.client-renewal-notice.is-urgent{border-color:#d47b43;background:linear-gradient(115deg,#fff0e3,#fff8f2)}
+.client-renewal-notice.is-expired{border-color:#cf6262;background:linear-gradient(115deg,#fff0f0,#fff7f7)}
+.client-renewal-copy{min-width:0}.client-renewal-eyebrow{font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.client-renewal-notice h3{margin:0 0 4px;font-size:16px;color:var(--text)}
+.client-renewal-notice p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.client-renewal-notice button{flex:none;white-space:nowrap}
+.renewal-admin-panel{margin:18px 0 24px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-solid)}
+.renewal-admin-panel .content-head{margin-bottom:10px}.renewal-contact-grid{grid-template-columns:minmax(220px,1fr) minmax(180px,.8fr) auto;align-items:end}
+.renewal-state-select{min-width:145px;max-width:170px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel-solid);color:var(--text);font:inherit;font-size:11px}
+.renewal-note-input{width:150px;max-width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel-solid);color:var(--text);font:inherit;font-size:11px}
+.renewal-row-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.renewal-modal-back{position:fixed;inset:0;z-index:30000;background:rgba(8,18,32,.62);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.renewal-modal{width:min(620px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:20px;border-radius:16px;border:1px solid var(--line);background:var(--panel-solid);color:var(--text);box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.renewal-modal h2{margin:0 0 6px;font-size:20px}.renewal-modal p{font-size:12px;color:var(--muted);line-height:1.55}
+.renewal-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.renewal-form-grid label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:800;color:var(--muted)}
+.renewal-form-grid input,.renewal-form-grid select,.renewal-form-grid textarea{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--panel-solid);color:var(--text);font:inherit;font-size:13px}
+.renewal-form-grid .full{grid-column:1/-1}.renewal-modal-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+.renewal-success-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.renewal-success-links a{display:inline-flex;align-items:center;justify-content:center;padding:10px 13px;border-radius:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);font-weight:800;font-size:12px;text-decoration:none}
+html[data-theme="dark"] .client-renewal-notice{background:linear-gradient(115deg,#142b43,#172d44);border-color:#365f86}
+html[data-theme="dark"] .client-renewal-notice.is-warning{background:linear-gradient(115deg,#382d1a,#302919);border-color:#8b672d}
+html[data-theme="dark"] .client-renewal-notice.is-urgent{background:linear-gradient(115deg,#3d281d,#32251f);border-color:#92552f}
+html[data-theme="dark"] .client-renewal-notice.is-expired{background:linear-gradient(115deg,#3b2025,#322027);border-color:#93444d}
+@media(max-width:700px){.client-renewal-notice{align-items:stretch;flex-direction:column}.client-renewal-notice button{width:100%}.renewal-form-grid{grid-template-columns:1fr}.renewal-form-grid .full{grid-column:auto}.renewal-contact-grid{grid-template-columns:1fr}.renewal-row-actions{min-width:180px}}
+
 
 .auth-link{border:0;background:transparent;color:var(--accent,#2563eb);padding:9px 6px;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
 .password-recovery-panel{display:flex;flex-direction:column;gap:12px;margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-solid)}
@@ -695,6 +723,15 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
       <div class="top-right">
         <button id="themeToggleApp" class="theme-toggle" type="button" aria-label="Cambiar apariencia">☀️ Claro</button><button id="refreshBtn" class="refresh-btn" type="button">↻ Actualizar</button><div id="who" class="user-pill"></div><button id="logoutBtn" class="logout" type="button">Cerrar sesión</button></div>
     </div>
+
+    <section id="clientRenewalNotice" class="client-renewal-notice hidden" role="status" aria-live="polite">
+      <div class="client-renewal-copy">
+        <div class="client-renewal-eyebrow" id="clientRenewalEyebrow">Aviso de licencia</div>
+        <h3 id="clientRenewalTitle">Tu licencia está próxima a vencer</h3>
+        <p id="clientRenewalMessage">Podés solicitar la renovación desde aquí.</p>
+      </div>
+      <button id="clientRenewalRequestBtn" class="toolbar-btn primary" type="button">Solicitar renovación</button>
+    </section>
 
     <section class="hero">
       <div class="hero-title-area">
@@ -941,6 +978,19 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 
     <section id="view-comercial" class="content-card hidden">
       <div class="content-head"><div><h2>Planes, licencias y ventas</h2><small>Configurá servicios, precios, límites, renovaciones y cobros. Los documentos generados aquí son registros internos, no facturas fiscales timbradas.</small></div><button class="toolbar-btn" type="button" onclick="loadCommercialWorkspace()">↻ Actualizar</button></div>
+      <div class="renewal-admin-panel">
+        <div class="content-head"><div><h3>Solicitudes de renovación y reactivación</h3><small>Pedidos enviados por todos los clientes, incluso cuando su licencia está vencida.</small></div><button id="refreshRenewalRequestsBtn" class="toolbar-btn" type="button">↻ Actualizar solicitudes</button></div>
+        <div id="renewalRequestsMsg" class="muted">Cargando solicitudes...</div>
+        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Pedido</th><th>Plan / importe</th><th>Contacto</th><th>Pago</th><th>Mensaje</th><th>Estado / acción</th></tr></thead><tbody id="renewalRequestsBody"></tbody></table></div>
+        <h3 class="biz-section-title">Canales de contacto de A&T</h3>
+        <small class="muted">Estos datos aparecerán en los botones de WhatsApp y correo cuando el cliente envíe su solicitud.</small>
+        <div class="biz-inline-form renewal-contact-grid">
+          <label>Correo de atención<input id="supportEmailInput" class="toolbar-input" type="email" maxlength="240" placeholder="soporte@tuempresa.com"></label>
+          <label>WhatsApp de atención<input id="supportPhoneInput" class="toolbar-input" maxlength="40" placeholder="+595..."></label>
+          <button id="saveSupportContactBtn" class="toolbar-btn primary" type="button">Guardar contacto</button>
+        </div>
+        <div id="supportContactMsg" class="muted"></div>
+      </div>
       <h3 class="biz-section-title">Crear o editar un plan</h3>
       <input id="planEditId" type="hidden">
       <div class="biz-form-grid">
@@ -4169,6 +4219,7 @@ function applyAccountEntitlements(data){
       const state=data.license_active?'Servicio activo':'Servicio suspendido o licencia vencida';
       const end=data.ends_at?' · vence '+new Date(data.ends_at).toLocaleDateString('es-PY'):'';
       $('clientLicenseSummary').textContent=state+end+(data.license_active?'':' · Los datos históricos se conservan. Contactá a A&T para renovar.');
+      renderClientRenewalNotice(data);
     }
   }
   const features=data?.features||{};
@@ -4213,6 +4264,144 @@ function applyAccountEntitlements(data){
   if(!enabled('remote_control')&&currentView==='control-remoto')showView('resumen');
   if(!enabled('alerts')&&currentView==='alertas')showView('resumen');
   if(!enabled('ai')&&currentView==='asistente')showView('resumen');
+}
+
+
+const renewalPlanLabels={monthly:'Mensual',yearly:'Anual',one_time:'Pago único',custom:'Personalizada (30 días)'};
+const renewalRequestLabels={renewal:'Renovación',reactivation:'Reactivación',upgrade:'Cambio de plan',quote:'Cotización'};
+const renewalStatusLabels={received:'Recibida',contacted:'Contactado',awaiting_payment:'Esperando pago',payment_reported:'Pago informado',completed:'Completada',rejected:'Rechazada'};
+function renewalDaysRemaining(endValue){
+  if(!endValue)return null;
+  const end=new Date(endValue),now=new Date();
+  if(!Number.isFinite(end.getTime()))return null;
+  return Math.ceil((end.getTime()-now.getTime())/86400000);
+}
+function renderClientRenewalNotice(data){
+  const box=$('clientRenewalNotice');if(!box)return;
+  if(isAdmin||!data||!data.company_id||!data.ends_at){box.classList.add('hidden');return}
+  const remaining=renewalDaysRemaining(data.ends_at);
+  const expired=!data.license_active||remaining===null||remaining<=0||data.company_status!=='active';
+  if(!expired&&remaining>7){box.classList.add('hidden');return}
+  box.classList.remove('hidden','is-warning','is-urgent','is-expired');
+  const endText=new Date(data.ends_at).toLocaleDateString('es-PY');
+  let title='Tu licencia está próxima a vencer',message='Tu servicio vence el '+endText+'. Podés anticipar la renovación para evitar interrupciones.',eyebrow='Aviso de licencia',button='Consultar renovación';
+  if(expired){
+    box.classList.add('is-expired');eyebrow='Servicio suspendido';title='Tu licencia necesita reactivación';
+    message='El servicio está suspendido. Tus proyectos, impresoras e historial se conservan. Enviá una solicitud para que A&T revise la reactivación.';
+    button='Solicitar reactivación';
+  }else if(remaining<=1){
+    box.classList.add('is-urgent');eyebrow='Aviso urgente · vence mañana';title='Tu licencia está por vencer';
+    message='Queda '+remaining+' día. Solicitá la renovación ahora para evitar que el servicio se suspenda.';
+    button='Renovar ahora';
+  }else if(remaining<=3){
+    box.classList.add('is-warning');eyebrow='Aviso importante · '+remaining+' días';title='Tu licencia vence pronto';
+    message='Quedan '+remaining+' días para el vencimiento ('+endText+'). Te recomendamos iniciar la renovación.';
+    button='Solicitar renovación';
+  }else{
+    eyebrow='Recordatorio · 7 días';title='Tu licencia está próxima a vencer';
+    message='Tu servicio vence el '+endText+'. Tenés '+remaining+' días para organizar la renovación.';
+  }
+  $('clientRenewalEyebrow').textContent=eyebrow;
+  $('clientRenewalTitle').textContent=title;
+  $('clientRenewalMessage').textContent=message;
+  $('clientRenewalRequestBtn').textContent=button;
+}
+function closeRenewalModal(){document.getElementById('renewalRequestOverlay')?.remove()}
+async function openRenewalRequestDialog(){
+  if(isAdmin||!accountEntitlements?.company_id){atNotify('No se pudo identificar la empresa de esta cuenta.','error');return}
+  let data;
+  try{data=await api('/rest/v1/rpc/control_get_renewal_options',{method:'POST',body:'{}'})}
+  catch(e){atNotify('No se pudieron cargar los planes: '+e.message,'error');return}
+  const plans=Array.isArray(data?.plans)?data.plans:[];
+  const planOptions=plans.map(p=>{
+    const price=Number(p.amount)>0?formatGs(p.amount):'Precio a consultar';
+    const cycle=renewalPlanLabels[p.billing_cycle]||p.billing_cycle||'';
+    const limits=[p.max_projects?'Proyectos: '+p.max_projects:'Proyectos sin límite indicado',p.max_printers?'Impresoras: '+p.max_printers:'Impresoras sin límite indicado'].join(' · ');
+    return '<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+' · '+escapeHtml(price)+' · '+escapeHtml(cycle)+' · '+escapeHtml(limits)+'</option>';
+  }).join('');
+  const defaultType=accountEntitlements.license_active?'renewal':'reactivation';
+  const overlay=document.createElement('div');overlay.id='renewalRequestOverlay';overlay.className='renewal-modal-back';
+  overlay.innerHTML='<div class="renewal-modal" role="dialog" aria-modal="true" aria-labelledby="renewalModalTitle">'+
+    '<h2 id="renewalModalTitle">Solicitar renovación o reactivación</h2>'+
+    '<p>Empresa: <b>'+escapeHtml(accountEntitlements.company_name||'')+'</b> · Código: <b>'+escapeHtml(accountEntitlements.company_code||'')+'</b><br>El pedido quedará registrado para A&T. Enviar esta solicitud no reactiva la licencia automáticamente.</p>'+
+    '<form id="renewalRequestForm"><div class="renewal-form-grid">'+
+      '<label>Qué necesitás<select id="renewalRequestType" required><option value="renewal" '+(defaultType==='renewal'?'selected':'')+'>Renovar mi plan actual</option><option value="reactivation" '+(defaultType==='reactivation'?'selected':'')+'>Reactivar mi cuenta</option><option value="upgrade">Cambiar a un plan superior</option><option value="quote">Solicitar una cotización personalizada</option></select></label>'+
+      '<label>Plan de interés<select id="renewalRequestPlan"><option value="">Mantener el plan actual / consultar</option>'+planOptions+'</select></label>'+
+      '<label>Método de pago preferido<select id="renewalPaymentMethod"><option value="bank_transfer">Transferencia bancaria</option><option value="qr">QR</option><option value="cash">Efectivo</option><option value="other">Coordinar con A&T</option></select></label>'+
+      '<label>Correo de contacto<input id="renewalContactEmail" type="email" maxlength="240" value="'+escapeHtml(data.company_email||'')+'" placeholder="correo@empresa.com"></label>'+
+      '<label>WhatsApp de contacto<input id="renewalContactPhone" maxlength="40" value="'+escapeHtml(data.company_phone||'')+'" placeholder="+595..."></label>'+
+      '<label class="full">Mensaje adicional<textarea id="renewalRequestMessage" rows="3" maxlength="1200" placeholder="Contanos qué necesitás o cuándo querés renovar..."></textarea></label>'+
+    '</div><div class="renewal-modal-actions"><button class="toolbar-btn" type="button" id="cancelRenewalRequestBtn">Cancelar</button><button class="toolbar-btn primary" type="submit" id="submitRenewalRequestBtn">Enviar solicitud</button></div><div id="renewalRequestFormMsg" class="muted" aria-live="polite"></div></form></div>';
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeRenewalModal()});
+  document.body.appendChild(overlay);
+  $('cancelRenewalRequestBtn').addEventListener('click',closeRenewalModal);
+  $('renewalRequestType').addEventListener('change',e=>{if(e.target.value==='quote')$('renewalRequestPlan').value=''});
+  $('renewalRequestForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const btn=$('submitRenewalRequestBtn'),msg=$('renewalRequestFormMsg');btn.disabled=true;btn.textContent='Enviando...';msg.textContent='Registrando tu solicitud...';
+    try{
+      const type=$('renewalRequestType').value,plan=$('renewalRequestPlan').value||null;
+      const result=await api('/rest/v1/rpc/control_submit_renewal_request',{method:'POST',body:JSON.stringify({
+        p_request_type:type,p_plan_id:plan,p_payment_method:$('renewalPaymentMethod').value,
+        p_contact_email:$('renewalContactEmail').value.trim(),p_contact_phone:$('renewalContactPhone').value.trim(),
+        p_message:$('renewalRequestMessage').value.trim()
+      })});
+      const contact=await api('/rest/v1/rpc/control_get_support_contact',{method:'POST',body:'{}'}).catch(()=>({}));
+      const supportPhone=String(contact?.phone||'').replace(/[^0-9]/g,'');
+      const supportEmail=String(contact?.email||'').trim();
+      const planName=plans.find(p=>p.id===plan)?.name||'A definir con A&T';
+      const msgText='Hola, envié una solicitud de '+(renewalRequestLabels[type]||type)+' en A&T Printix. Empresa: '+(accountEntitlements.company_name||'')+' ('+(accountEntitlements.company_code||'')+'). Plan: '+planName+'. Solicitud: '+(result.request_id||'');
+      const links=(supportPhone?'<a href="https://wa.me/'+supportPhone+'?text='+encodeURIComponent(msgText)+'" target="_blank" rel="noopener">Abrir WhatsApp</a>':'')+
+        (supportEmail?'<a href="mailto:'+encodeURIComponent(supportEmail)+'?subject='+encodeURIComponent('Solicitud A&T Printix '+(accountEntitlements.company_code||''))+'&body='+encodeURIComponent(msgText)+'">Enviar correo</a>':'');
+      overlay.innerHTML='<div class="renewal-modal" role="dialog" aria-modal="true"><h2>Solicitud registrada</h2><p>Tu pedido quedó guardado correctamente con el número <b>'+escapeHtml(result.request_id||'')+'</b>. A&T podrá verlo en su panel de administración. La licencia no se reactiva hasta que A&T revise y apruebe el pedido.</p><div class="renewal-success-links">'+(links||'<span class="muted">Los canales directos de WhatsApp y correo todavía no están configurados por A&T. Tu solicitud ya quedó registrada y no se pierde.</span>')+'</div><div class="renewal-modal-actions"><button class="toolbar-btn primary" type="button" id="closeRenewalSuccessBtn">Cerrar</button></div></div>';
+      $('closeRenewalSuccessBtn').addEventListener('click',closeRenewalModal);
+      atNotify('Solicitud enviada a A&T. Código: '+(accountEntitlements.company_code||''),'success');
+    }catch(err){msg.textContent='No se pudo enviar: '+err.message;btn.disabled=false;btn.textContent='Enviar solicitud'}
+  });
+}
+async function loadRenewalRequests(){
+  const body=$('renewalRequestsBody');if(!body)return;
+  $('renewalRequestsMsg').textContent='Cargando solicitudes...';
+  try{
+    const data=await api('/rest/v1/rpc/control_admin_list_renewal_requests',{method:'POST',body:'{}'});
+    const requests=Array.isArray(data?.requests)?data.requests:[];
+    $('renewalRequestsMsg').textContent=requests.length+' solicitud(es) registradas.';
+    body.innerHTML=requests.length?requests.map(r=>{
+      const when=r.submitted_at?new Date(r.submitted_at).toLocaleString('es-PY'):'—';
+      const reqType=renewalRequestLabels[r.request_type]||r.request_type;
+      const amount=Number(r.requested_amount)>0?formatGs(r.requested_amount):'A consultar';
+      const plan=escapeHtml(r.requested_plan_name||'Sin definir')+' · '+escapeHtml(amount);
+      const contact=[r.contact_email,r.contact_phone].filter(Boolean).map(escapeHtml).join('<br>')||'—';
+      const payment={bank_transfer:'Transferencia',qr:'QR',cash:'Efectivo',other:'Coordinar'}[r.payment_method]||r.payment_method;
+      const options=Object.entries(renewalStatusLabels).map(([value,label])=>'<option value="'+value+'" '+(r.status===value?'selected':'')+'>'+label+'</option>').join('');
+      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions"><select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
+    }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay solicitudes de renovación.</td></tr>';
+  }catch(e){$('renewalRequestsMsg').textContent='No se pudieron cargar las solicitudes: '+e.message}
+}
+async function saveRenewalRequestStatus(id){
+  const status=$('renewalStatus-'+id)?.value,note=$('renewalNote-'+id)?.value||'';
+  if(!status)return;
+  try{
+    await api('/rest/v1/rpc/control_admin_set_renewal_request_status',{method:'POST',body:JSON.stringify({p_request_id:id,p_status:status,p_admin_note:note})});
+    atNotify('Estado de solicitud actualizado.','success');await loadRenewalRequests();
+  }catch(e){atNotify('No se pudo actualizar la solicitud: '+e.message,'error')}
+}
+async function loadSupportContactSettings(){
+  if(!isAdmin)return;
+  try{
+    const data=await api('/rest/v1/rpc/control_get_support_contact',{method:'POST',body:'{}'});
+    $('supportEmailInput').value=data?.email||'';$('supportPhoneInput').value=data?.phone||'';
+    $('supportContactMsg').textContent=(data?.email||data?.phone)?'Los canales configurados aparecerán después de enviar una solicitud.':'Configurá al menos un canal para habilitar WhatsApp o correo.';
+  }catch(e){$('supportContactMsg').textContent='No se pudieron leer los contactos: '+e.message}
+}
+async function saveSupportContact(){
+  try{
+    await api('/rest/v1/rpc/control_update_support_contact',{method:'POST',body:JSON.stringify({
+      p_email:$('supportEmailInput').value.trim()||null,p_phone:$('supportPhoneInput').value.trim()||null
+    })});
+    $('supportContactMsg').textContent='Canales de atención guardados.';
+    atNotify('Datos de contacto de A&T actualizados.','success');
+  }catch(e){$('supportContactMsg').textContent='No se pudieron guardar: '+e.message}
 }
 
 let businessCompanies=[],businessPlans=[],aiHistory=[];
@@ -4403,6 +4592,7 @@ async function loadCommercialWorkspace(){
       businessAdminRequest({action:'list_sales'}),
       businessAdminRequest({action:'list_companies'})
     ]);
+    await Promise.all([loadRenewalRequests(),loadSupportContactSettings()]);
     businessPlans=results[0].plans||[];businessCompanies=results[2].companies||[];
     populateBusinessSelects();renderPlans();renderSales(results[1].sales||[]);
   }catch(e){$('plansMsg').textContent='No se pudo cargar la gestión comercial: '+e.message}
@@ -4513,6 +4703,9 @@ $('aiSendBtn').addEventListener('click',()=>askAtpcAssistant());
 $('aiQuestion').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askAtpcAssistant()}});
 document.querySelectorAll('[data-ai-prompt]').forEach(b=>b.addEventListener('click',()=>askAtpcAssistant(b.dataset.aiPrompt)));
 
+$('clientRenewalRequestBtn').addEventListener('click',openRenewalRequestDialog);
+$('refreshRenewalRequestsBtn').addEventListener('click',loadRenewalRequests);
+$('saveSupportContactBtn').addEventListener('click',saveSupportContact);
 $('themeToggleAuth').addEventListener('click',toggleTheme);
 $('themeToggleApp').addEventListener('click',toggleTheme);
 document.querySelectorAll('.app-btn').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
