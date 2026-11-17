@@ -1035,7 +1035,8 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
       </div>
       <div class="biz-actions"><button id="createSaleBtn" class="toolbar-btn primary" type="button">Registrar venta</button><span id="salesMsg" class="muted"></span></div>
       <h3 class="biz-section-title">Ventas y cobros registrados</h3>
-      <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Empresa</th><th>Descripción</th><th>Importe</th><th>Cobrado</th><th>Saldo</th><th>Estado</th><th></th></tr></thead><tbody id="salesBody"></tbody></table></div>
+      <p class="muted" style="margin:0 0 10px;font-size:12px">“Registrar pago recibido” se usa cuando el cliente ya pagó. Podés cargar el pago total o parcial, indicar el medio de pago y guardar una referencia o número de comprobante. No envía una solicitud de pago al cliente ni reactiva automáticamente su licencia.</p>
+      <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Empresa</th><th>Descripción</th><th>Importe</th><th>Cobrado</th><th>Saldo pendiente</th><th>Estado de cobro</th><th>Acciones</th></tr></thead><tbody id="salesBody"></tbody></table></div>
     </section>
 
     <section id="view-asistente" class="content-card hidden">
@@ -4638,8 +4639,15 @@ async function loadCommercialWorkspace(){
 function renderSales(sales){
   const body=$('salesBody');if(!body)return;
   const companies=new Map(businessCompanies.map(c=>[c.id,c.name]));
+  const statusLabels={issued:'Pendiente de cobro',partial:'Pago parcial',paid:'Pagado',void:'Anulado',cancelled:'Cancelado'};
+  const arg=value=>escapeHtml(JSON.stringify(value));
   body.innerHTML=sales.length?sales.map(s=>{
-    return '<tr><td><code>'+escapeHtml(s.document_no)+'</code></td><td>'+escapeHtml(companies.get(s.company_id)||'Empresa')+'</td><td>'+escapeHtml(s.description)+'</td><td>'+formatGs(s.amount)+'</td><td>'+formatGs(s.paid_amount)+'</td><td>'+formatGs(s.balance)+'</td><td>'+escapeHtml(s.status)+'</td><td>'+(s.balance>0?'<button class="icon-btn" type="button" onclick="recordCompanyPayment('+JSON.stringify(s.id)+','+Number(s.balance)+')">Registrar cobro</button>':'—')+'</td></tr>';
+    const company=companies.get(s.company_id)||'Empresa';
+    const status=statusLabels[s.status]||s.status||'Sin estado';
+    const action=Number(s.balance)>0
+      ? '<button class="icon-btn" type="button" title="Abrir formulario para cargar un pago total o parcial ya recibido" onclick="recordCompanyPayment('+arg(s.id)+','+Number(s.balance)+','+Number(s.amount||0)+','+Number(s.paid_amount||0)+','+arg(s.description||'')+','+arg(s.document_no||'')+','+arg(company)+')">Registrar pago recibido</button>'
+      : '<span class="muted">Sin saldo pendiente</span>';
+    return '<tr><td><code>'+escapeHtml(s.document_no)+'</code></td><td>'+escapeHtml(company)+'</td><td>'+escapeHtml(s.description)+'</td><td>'+formatGs(s.amount)+'</td><td>'+formatGs(s.paid_amount)+'</td><td><b>'+formatGs(s.balance)+'</b></td><td>'+escapeHtml(status)+'</td><td>'+action+'</td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay ventas registradas.</td></tr>';
 }
 async function saveCompanySubscription(){
@@ -4659,13 +4667,40 @@ async function createCompanySale(){
   try{await businessAdminRequest(payload);$('salesMsg').textContent='Registro comercial guardado.';$('saleDescription').value='';$('saleAmount').value='';await loadCommercialWorkspace()}
   catch(e){$('salesMsg').textContent='No se pudo registrar: '+e.message}
 }
-async function recordCompanyPayment(saleId,balance){
-  const amountText=prompt('Saldo pendiente: '+formatGs(balance)+'. Importe a cobrar (Gs.):',String(Math.round(balance)));
-  if(amountText===null)return;
-  const amount=Number(amountText);if(!Number.isFinite(amount)||amount<=0){atNotify('Ingresá un importe válido.');return}
-  const method=prompt('Método: cash, bank_transfer, card, check u other','bank_transfer')||'other';
-  try{await businessAdminRequest({action:'record_payment',sale_id:saleId,amount,payment_method:method});await loadCommercialWorkspace();atNotify('Cobro registrado.')}
-  catch(e){atNotify('No se pudo registrar el cobro: '+e.message)}
+async function recordCompanyPayment(saleId,balance,total,paid,description,documentNo,companyName){
+  const overlay=document.createElement('div');overlay.className='renewal-modal-back';
+  overlay.innerHTML='<div class="renewal-modal" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">'+
+    '<h2 id="paymentModalTitle">Registrar pago recibido</h2>'+
+    '<p>Usá este formulario solamente cuando el cliente ya haya pagado. El registro actualizará el total cobrado y el saldo de esta venta.</p>'+
+    '<div class="biz-note"><strong>'+escapeHtml(companyName||'Empresa')+' · '+escapeHtml(documentNo||'Documento')+'</strong><span>'+escapeHtml(description||'')+'</span></div>'+
+    '<div class="renewal-form-grid">'+
+      '<label>Importe total de la venta<input value="'+formatGs(total)+'" disabled></label>'+
+      '<label>Ya cobrado<input value="'+formatGs(paid)+'" disabled></label>'+
+      '<label>Saldo pendiente<input value="'+formatGs(balance)+'" disabled></label>'+
+      '<label>Importe que recibiste (Gs.)<input id="paymentAmountInput" type="number" min="1" max="'+Number(balance)+'" step="1" value="'+Math.round(balance)+'" required></label>'+
+      '<label>Medio de pago<select id="paymentMethodInput"><option value="bank_transfer">Transferencia bancaria</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="check">Cheque</option><option value="other">Otro</option></select></label>'+
+      '<label>Referencia / comprobante (opcional)<input id="paymentReferenceInput" maxlength="180" placeholder="N.º de operación o recibo"></label>'+
+      '<label class="full">Observación (opcional)<textarea id="paymentNoteInput" rows="2" maxlength="500" placeholder="Ej. Transferencia recibida y verificada"></textarea></label>'+
+    '</div><div id="paymentFormMsg" class="muted" aria-live="polite"></div>'+
+    '<div class="renewal-modal-actions"><button class="toolbar-btn" type="button" id="cancelPaymentBtn">Cancelar</button><button class="toolbar-btn primary" type="button" id="confirmPaymentBtn">Confirmar y registrar pago</button></div></div>';
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
+  $('cancelPaymentBtn').addEventListener('click',close);
+  $('confirmPaymentBtn').addEventListener('click',async()=>{
+    const amount=Number($('paymentAmountInput').value),method=$('paymentMethodInput').value;
+    const msg=$('paymentFormMsg'),btn=$('confirmPaymentBtn');
+    if(!Number.isFinite(amount)||amount<=0){msg.textContent='Ingresá un importe mayor que cero.';return}
+    if(amount>Number(balance)){msg.textContent='El importe supera el saldo pendiente de '+formatGs(balance)+'.';return}
+    btn.disabled=true;btn.textContent='Registrando...';msg.textContent='Guardando el pago y actualizando el saldo...';
+    try{
+      const result=await businessAdminRequest({action:'record_payment',sale_id:saleId,amount,payment_method:method,
+        reference:$('paymentReferenceInput').value.trim(),note:$('paymentNoteInput').value.trim()});
+      close();await loadCommercialWorkspace();
+      atNotify('Pago registrado: '+formatGs(amount)+'. Total cobrado: '+formatGs(result.paid_amount)+'. Saldo restante: '+formatGs(result.balance)+'.','success',9000);
+    }catch(e){msg.textContent='No se pudo registrar el pago: '+e.message;btn.disabled=false;btn.textContent='Confirmar y registrar pago'}
+  });
+  $('paymentAmountInput').focus();$('paymentAmountInput').select();
 }
 async function loadCompanyMembers(){
   const company_id=$('memberCompanySelect').value;if(!company_id)return;
