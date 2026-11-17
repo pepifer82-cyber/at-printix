@@ -861,10 +861,13 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 
     <section id="view-retiradas" class="content-card hidden">
       <div class="content-head">
-        <div><h3>Impresoras retiradas</h3><small id="retiredFleetHelp">Se conservan los datos y el historial, pero no aparecen en el control activo.</small></div>
-        <div class="content-tools"><input id="retiredSearch" class="toolbar-input" type="search" placeholder="Buscar retirada: nombre, IP, serie, ciudad, cliente..."><button class="toolbar-btn" type="button" onclick="exportRetiredFleetExcel()">▣ Excel</button></div>
+        <div><h3>Historial de flotas retiradas</h3><small id="retiredFleetHelp">Abrí cada flota para consultar todos los equipos que tenía registrados.</small></div>
+        <div class="content-tools"><input id="retiredSearch" class="toolbar-input" type="search" placeholder="Buscar flota, cliente, impresora, IP o serie..."><button class="toolbar-btn" type="button" onclick="exportRetiredFleetExcel()">▣ Excel</button></div>
       </div>
-      <div id="retiredFleetCount" class="muted" style="font-size:12px;margin:2px 0 10px">Seleccioná un proyecto o cliente para consultar las retiradas.</div>
+      <div id="retiredFleetCount" class="muted" style="font-size:12px;margin:2px 0 12px">Cargando historial de flotas…</div>
+      <div id="retiredFleetGroups" class="retired-fleet-groups"></div>
+      <div style="height:1px;background:var(--line,#dce6f2);margin:18px 0"></div>
+      <div class="content-head"><div><h3>Equipos retirados individualmente</h3><small>Equipos retirados sin retirar el proyecto o la flota completa.</small></div></div>
       <div class="table-wrap"><table><thead><tr>
         <th class="retired-admin-col">Cliente</th><th>Proyecto</th><th>Impresora</th><th>Descripción</th><th>Ciudad</th><th>Estado anterior</th><th>Último contacto</th><th>Agente</th><th>IP</th><th>Serie de fábrica</th><th>Retirada</th><th></th>
       </tr></thead><tbody id="retiredBody"></tbody></table></div>
@@ -1080,7 +1083,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 const SUPABASE_URL='https://nxpdcwoypvlcgwuvjuro.supabase.co';
 const SUPABASE_KEY='sb_publishable_fwz_qVPsE9lEp0v4XA1b2g_buuMHcin';
 const ACCESS_KEY='atpc_access_token',REFRESH_KEY='atpc_refresh_token';
-let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],retiredFleetRows=[],retiredFleetRequestId=0,agentRows=[],projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
+let currentUser=null,currentProjectId=null,currentView='resumen',projects=[],archivedProjects=[],projectCompanies=[],sidebarCompanyFilter='all',serialByProject=new Map(),rows=[],retiredFleetRows=[],retiredFleetRequestId=0,agentRows=[],projectSearch='',inventorySearch='',retiredSearch='',counterRows=[],counterRowsPeriod=null,counterLastError='',isAdmin=false,pricing={free_pages:2000,price_per_page:0};
 const $=id=>document.getElementById(id);
 // ===== Toasts + diálogo de confirmación (reemplazan alert() y confirm()) =====
 function toastStackEl(){
@@ -1369,8 +1372,11 @@ function setEmptyProjectHeader(meta){
 async function loadProjects(selectId){
   projects=await api('/rest/v1/control_projects?select=id,name,active,created_at,company_id&active=eq.true&order=created_at.asc');
   projects=Array.isArray(projects)?projects:[];
+  // Historial de flotas completas retiradas. RLS limita esta lista por empresa.
+  archivedProjects=await api('/rest/v1/control_projects?select=id,name,active,created_at,updated_at,company_id&active=eq.false&order=updated_at.desc');
+  archivedProjects=Array.isArray(archivedProjects)?archivedProjects:[];
   if(isAdmin){
-    projectCompanies=await api('/rest/v1/control_companies?select=id,name,company_code,status&status=eq.active&order=name.asc');
+    projectCompanies=await api('/rest/v1/control_companies?select=id,name,company_code,status&order=name.asc');
     projectCompanies=Array.isArray(projectCompanies)?projectCompanies:[];
     renderSidebarCompanyFilter();
   }else{
@@ -3092,34 +3098,58 @@ async function saveDuplicateRename(){
 
 
 function getRetiredScopeProjects(){
-  const available=Array.isArray(projects)?projects.filter(p=>p&&p.active!==false):[];
+  const all=[...(Array.isArray(projects)?projects:[]),...(Array.isArray(archivedProjects)?archivedProjects:[])];
   if(isAdmin&&sidebarCompanyFilter!=='all'){
-    return available.filter(p=>String(p.company_id)===String(sidebarCompanyFilter));
+    return all.filter(p=>String(p.company_id)===String(sidebarCompanyFilter));
   }
-  // En cuentas cliente, "projects" ya viene limitado por RLS a su empresa.
-  // En el panel maestro, "Todos los clientes" incluye todos los proyectos activos.
-  return available;
+  // Los proyectos archivados de clientes están filtrados por RLS de Supabase.
+  return all;
 }
 
-function buildRetiredPrinterRows(sourceRows,knownActiveRows){
+function archivedProjectIds(){
+  return new Set((archivedProjects||[]).map(p=>String(p.id)));
+}
+
+function buildRetiredPrinterRows(sourceRows){
   const records=Array.isArray(sourceRows)?sourceRows:[];
-  const activeRows=Array.isArray(knownActiveRows)
-    ?knownActiveRows
-    :dedupePrinterRows(records.filter(isActivePrinterRecord));
-  const activeNetworkRows=activeRows.filter(r=>!!realIpOf(r));
-  const retiredSource=records.filter(isRetiredPrinterRecord).filter(r=>{
-    const conn=String(r?.connection_type||'').toLowerCase();
-    const noIp=!realIpOf(r);
-    const ownSerial=String(r?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
-    return !activeNetworkRows.some(n=>{
-      const networkSerial=String(n?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
-      if(ownSerial&&networkSerial&&ownSerial===networkSerial)return true;
-      const sameAgent=String(r?.agent_code||r?.agent_id||'').toLowerCase()===String(n?.agent_code||n?.agent_id||'').toLowerCase();
-      const sameName=String(r?.display_name||'').trim().toLowerCase()===String(n?.display_name||'').trim().toLowerCase();
-      return noIp&&conn.includes('usb')&&sameAgent&&sameName&&!(ownSerial&&networkSerial&&ownSerial!==networkSerial);
-    });
+  const archivedIds=archivedProjectIds();
+  const grouped=new Map();
+  records.forEach(r=>{
+    const key=String(r?.project_id||'');
+    if(!grouped.has(key))grouped.set(key,[]);
+    grouped.get(key).push(r);
   });
-  return dedupePrinterRows(retiredSource);
+  const result=[];
+  for(const [projectId,items] of grouped){
+    const fleetArchived=archivedIds.has(projectId);
+    let selected=[];
+    if(fleetArchived){
+      // El archivo de la flota conserva todos sus equipos, aunque retired=false.
+      selected=items;
+    }else{
+      const activeRows=dedupePrinterRows(items.filter(isActivePrinterRecord));
+      const activeNetworkRows=activeRows.filter(r=>!!realIpOf(r));
+      selected=items.filter(isRetiredPrinterRecord).filter(r=>{
+        const conn=String(r?.connection_type||'').toLowerCase();
+        const noIp=!realIpOf(r);
+        const ownSerial=String(r?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+        return !activeNetworkRows.some(n=>{
+          const networkSerial=String(n?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+          if(ownSerial&&networkSerial&&ownSerial===networkSerial)return true;
+          const sameAgent=String(r?.agent_code||r?.agent_id||'').toLowerCase()===String(n?.agent_code||n?.agent_id||'').toLowerCase();
+          const sameName=String(r?.display_name||'').trim().toLowerCase()===String(n?.display_name||'').trim().toLowerCase();
+          return noIp&&conn.includes('usb')&&sameAgent&&sameName&&!(ownSerial&&networkSerial&&ownSerial!==networkSerial);
+        });
+      });
+    }
+    const archivedProject=(archivedProjects||[]).find(p=>String(p.id)===projectId);
+    dedupePrinterRows(selected).forEach(r=>result.push({
+      ...r,
+      fleet_archived:fleetArchived,
+      fleet_archived_at:fleetArchived?(archivedProject?.updated_at||null):null
+    }));
+  }
+  return result;
 }
 
 async function loadRetiredFleet(){
@@ -3127,62 +3157,128 @@ async function loadRetiredFleet(){
   const body=$('retiredBody');
   if(!body)return;
   const scope=getRetiredScopeProjects();
-  if(!scope.length){
-    retiredFleetRows=[];
-    renderRetiredFleet();
-    return;
-  }
   const ids=scope.map(p=>String(p.id||'')).filter(Boolean);
   if(!ids.length){
     retiredFleetRows=[];
     renderRetiredFleet();
     return;
   }
-  $('retiredFleetCount').textContent='Consultando las impresoras retiradas de '+ids.length+' proyecto(s)…';
-  body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Consultando retiradas de la flota…</td></tr>';
+  $('retiredFleetCount').textContent='Consultando el historial de '+ids.length+' proyecto(s)…';
+  $('retiredFleetGroups').innerHTML='<div class="muted">Cargando flotas retiradas…</div>';
+  body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Consultando equipos retirados individualmente…</td></tr>';
   try{
-    const fields='project_id,printer_id,agent_id,display_name,manufacturer,model,connection_type,ip_address,windows_port,usb_port,serial_number,enabled,last_status,last_seen_at,agent_code,machine_name,description,city,retired,retired_at,mac_address';
-    const q='?select='+fields+'&project_id=in.('+ids.map(encodeURIComponent).join(',')+')&order=retired_at.desc.nullslast,last_seen_at.desc.nullslast';
+    const fields='project_id,printer_id,agent_id,display_name,manufacturer,model,connection_type,ip_address,windows_port,usb_port,serial_number,enabled,last_status,last_seen_at,agent_code,machine_name,description,city,retired,retired_at,mac_address,page_count,reading_at,reading_status,scanner_count,counter_reading_at';
+    const q='?select='+fields+'&project_id=in.('+ids.join(',')+')&order=last_seen_at.desc.nullslast';
     const result=await api('/rest/v1/control_printer_dashboard'+q);
     if(requestId!==retiredFleetRequestId)return;
     const all=Array.isArray(result)?result.filter(isRealPrinter):[];
-    const active=dedupePrinterRows(all.filter(isActivePrinterRecord));
-    retiredFleetRows=buildRetiredPrinterRows(all,active);
+    retiredFleetRows=buildRetiredPrinterRows(all);
     renderRetiredFleet();
   }catch(e){
     if(requestId!==retiredFleetRequestId)return;
     retiredFleetRows=[];
-    $('retiredFleetCount').textContent='No se pudieron cargar las retiradas: '+(e?.message||e);
-    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">Error consultando las impresoras retiradas. Revisá los permisos de la cuenta y volvé a actualizar.</td></tr>';
+    $('retiredFleetCount').textContent='No se pudo cargar el historial: '+(e?.message||e);
+    $('retiredFleetGroups').innerHTML='<div class="empty">No se pudieron consultar las flotas archivadas. Revisá el acceso y volvé a actualizar.</div>';
+    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">No se pudieron consultar los equipos retirados individualmente.</td></tr>';
   }
+}
+
+function toggleArchivedFleetDetails(projectId){
+  const panel=$('archived-fleet-details-'+projectId);
+  const button=$('archived-fleet-button-'+projectId);
+  if(!panel||!button)return;
+  const opening=panel.classList.contains('hidden');
+  panel.classList.toggle('hidden',!opening);
+  button.textContent=opening?'Ocultar equipos':'Ver todos los equipos';
+  button.setAttribute('aria-expanded',opening?'true':'false');
+}
+
+function renderArchivedFleetCard(project,rowsForProject,companyName,term){
+  const id=String(project.id);
+  const matchesProject=[project.name,companyName].some(v=>String(v||'').toLowerCase().includes(term));
+  const matchingRows=term&&!matchesProject
+    ?rowsForProject.filter(r=>[r.display_name,r.description,r.city,r.manufacturer,r.model,r.ip_address,r.serial_number,r.agent_code,r.machine_name].some(v=>String(v??'').toLowerCase().includes(term)))
+    :rowsForProject;
+  if(term&&!matchesProject&&!matchingRows.length)return '';
+  const idSafe=escapeHtml(id);
+  const rowsHtml=matchingRows.length?matchingRows.map(r=>{
+    const model=[r.manufacturer,r.model].filter(Boolean).join(' ');
+    const connection=connectionLabel(r);
+    const address=printerIpPort(r);
+    const count=r.page_count==null?'—':Number(r.page_count).toLocaleString('es-PY');
+    const last=r.counter_reading_at||r.reading_at||r.last_seen_at;
+    return '<tr>'
+      +'<td>'+escapeHtml(r.display_name||'Impresora')+'</td>'
+      +'<td>'+escapeHtml(model||'—')+'</td>'
+      +'<td>'+escapeHtml(connection+' · '+address)+'</td>'
+      +'<td>'+escapeHtml(r.serial_number||'—')+'</td>'
+      +'<td>'+escapeHtml(count)+'</td>'
+      +'<td>'+escapeHtml(last?new Date(last).toLocaleString():'—')+'</td>'
+      +'</tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">Esta flota no tenía impresoras registradas.</td></tr>';
+  const date=project.updated_at?new Date(project.updated_at).toLocaleString():'—';
+  const companyLabel=isAdmin?'<div class="muted" style="font-size:12px;margin-top:3px">'+escapeHtml(companyName||'Cliente')+'</div>':'';
+  const showing=term&&!matchesProject&&matchingRows.length!==rowsForProject.length
+    ?'<div class="muted" style="font-size:11px;margin-top:4px">Mostrando '+matchingRows.length+' coincidencia(s) de '+rowsForProject.length+'</div>':'';
+  return '<article class="retired-fleet-card" style="border:1px solid var(--line,#dce6f2);border-radius:12px;padding:14px;margin:0 0 10px;background:var(--card,#fff)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+    +'<div><strong>'+escapeHtml(project.name||'Flota sin nombre')+'</strong>'+companyLabel
+    +'<div class="muted" style="font-size:11px;margin-top:4px">Retirada: '+escapeHtml(date)+' · '+rowsForProject.length+' equipo(s) conservado(s)</div>'+showing+'</div>'
+    +'<button id="archived-fleet-button-'+idSafe+'" class="toolbar-btn primary" type="button" aria-expanded="false" onclick="toggleArchivedFleetDetails(\''+idSafe+'\')">Ver todos los equipos</button>'
+    +'</div>'
+    +'<div id="archived-fleet-details-'+idSafe+'" class="hidden" style="margin-top:12px">'
+    +'<div class="table-wrap"><table><thead><tr><th>Impresora</th><th>Fabricante / modelo</th><th>Conexión / IP</th><th>Serie</th><th>Contador</th><th>Última lectura</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'
+    +'</div></article>';
 }
 
 function renderRetiredFleet(){
   const body=$('retiredBody');
-  if(!body)return;
+  const groupsEl=$('retiredFleetGroups');
+  if(!body||!groupsEl)return;
   document.querySelectorAll('.retired-admin-col').forEach(el=>{el.style.display=isAdmin?'':'none'});
-  const projectById=new Map((projects||[]).map(p=>[String(p.id),p]));
+  const projectById=new Map([...(projects||[]),...(archivedProjects||[])].map(p=>[String(p.id),p]));
   const companyById=new Map((projectCompanies||[]).map(c=>[String(c.id),c]));
   const term=String($('retiredSearch')?.value??retiredSearch??'').trim().toLowerCase();
-  const visible=term?retiredFleetRows.filter(r=>{
-    const p=projectById.get(String(r.project_id));
-    const c=p?companyById.get(String(p.company_id)):null;
-    return [r.display_name,r.description,r.city,r.last_status,r.agent_code,r.machine_name,r.ip_address,r.serial_number,p?.name,c?.name]
-      .some(v=>String(v??'').toLowerCase().includes(term));
-  }):retiredFleetRows;
+  const fleetIds=archivedProjectIds();
+  const fleetRows=retiredFleetRows.filter(r=>r.fleet_archived);
+  const individualRows=retiredFleetRows.filter(r=>!r.fleet_archived);
+  const fleetGroups=new Map();
+  fleetRows.forEach(r=>{
+    const key=String(r.project_id);
+    if(!fleetGroups.has(key))fleetGroups.set(key,[]);
+    fleetGroups.get(key).push(r);
+  });
   const scope=getRetiredScopeProjects();
+  const archivedInScope=scope.filter(p=>fleetIds.has(String(p.id)));
+  const totalFleetDevices=fleetRows.length;
   const count=$('retiredFleetCount');
-  if(count)count.textContent='Mostrando '+visible.length+' de '+retiredFleetRows.length+' impresora(s) retirada(s) en '+scope.length+' proyecto(s).';
+  if(count)count.textContent=archivedInScope.length+' flota(s) archivada(s) · '+totalFleetDevices+' equipo(s) conservado(s) · '+individualRows.length+' equipo(s) retirado(s) individualmente.';
   const help=$('retiredFleetHelp');
   if(help){
     help.textContent=isAdmin
       ?(sidebarCompanyFilter==='all'
-        ?'Retiradas de todos los clientes y proyectos activos. Elegí una empresa en el selector lateral para limitar la lista.'
-        :'Retiradas del cliente seleccionado. Se conservan los datos y el historial; podés restaurar cualquier equipo.')
-      :'Retiradas de tu empresa en todos tus proyectos. Se conservan los datos y el historial; podés restaurar un equipo.';
+        ?'Seleccioná “Ver todos los equipos” en cualquier flota para abrir su inventario histórico. Se incluyen las flotas retiradas de todos los clientes.'
+        :'El cliente seleccionado muestra sus flotas archivadas completas y sus equipos retirados individualmente.')
+      :'Podés abrir cada una de tus flotas retiradas y consultar todos los equipos que tenía. Solo se muestran los proyectos de tu empresa.';
   }
+  const cards=archivedInScope.map(p=>{
+    const pRows=fleetGroups.get(String(p.id))||[];
+    const c=companyById.get(String(p.company_id));
+    const name=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'';
+    return renderArchivedFleetCard(p,pRows,name,term);
+  }).filter(Boolean);
+  groupsEl.innerHTML=cards.length
+    ?'<div style="font-weight:700;margin:4px 0 10px">Flotas completas retiradas</div>'+cards.join('')
+    :(archivedInScope.length?'No hay flotas que coincidan con la búsqueda.':'<div class="muted" style="margin:4px 0 12px">No hay flotas completas retiradas en este alcance.</div>');
+
+  const visible=term?individualRows.filter(r=>{
+    const p=projectById.get(String(r.project_id));
+    const c=p?companyById.get(String(p.company_id)):null;
+    return [r.display_name,r.description,r.city,r.last_status,r.agent_code,r.machine_name,r.ip_address,r.serial_number,p?.name,c?.name]
+      .some(v=>String(v??'').toLowerCase().includes(term));
+  }):individualRows;
   if(!visible.length){
-    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">'+(scope.length?'No hay impresoras retiradas para este alcance o búsqueda.':'No hay proyectos disponibles para consultar.')+'</td></tr>';
+    body.innerHTML='<tr><td colspan="'+(isAdmin?12:11)+'" class="empty">No hay equipos retirados individualmente para este alcance.</td></tr>';
     return;
   }
   body.innerHTML=visible.map(r=>{
@@ -3208,33 +3304,39 @@ function renderRetiredFleet(){
 
 function exportRetiredFleetExcel(){
   if(typeof XLSX==='undefined'){atNotify('No se pudo cargar el módulo de Excel. Revisá la conexión a Internet y volvé a intentar.');return}
-  if(!retiredFleetRows.length){atNotify('No hay impresoras retiradas para exportar.');return}
-  const projectById=new Map((projects||[]).map(p=>[String(p.id),p]));
+  if(!retiredFleetRows.length){atNotify('No hay equipos en el historial para exportar.');return}
+  const projectById=new Map([...(projects||[]),...(archivedProjects||[])].map(p=>[String(p.id),p]));
   const companyById=new Map((projectCompanies||[]).map(c=>[String(c.id),c]));
-  const data=retiredFleetRows.map(r=>{
+  const archived=retiredFleetRows.filter(r=>r.fleet_archived);
+  const individual=retiredFleetRows.filter(r=>!r.fleet_archived);
+  const toRow=r=>{
     const p=projectById.get(String(r.project_id));
     const c=p?companyById.get(String(p.company_id)):null;
     const row={
       Proyecto:p?.name||'',
       Impresora:r.display_name||'',
+      Fabricante:r.manufacturer||'',
+      Modelo:r.model||'',
       Descripción:r.description||'',
       Ciudad:r.city||'',
-      'Estado anterior':r.last_status||'',
-      'Último contacto':lastContact(r.last_seen_at),
-      Agente:r.agent_code||r.machine_name||'',
+      Conexión:r.connection_type||'',
       IP:r.ip_address||'',
       Serie:r.serial_number||'',
+      Contador:r.page_count??'',
+      'Último contacto':lastContact(r.last_seen_at),
       Retirada:r.retired_at?new Date(r.retired_at).toLocaleString():''
     };
     if(isAdmin)row.Cliente=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'';
     return row;
-  });
+  };
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.json_to_sheet(data);
-  fitColumns(ws);
-  XLSX.utils.book_append_sheet(wb,ws,'Retiradas');
+  for(const [name,data] of [['Flotas archivadas',archived],['Retiradas individuales',individual]]){
+    const ws=XLSX.utils.json_to_sheet(data.map(toRow));
+    fitColumns(ws);
+    XLSX.utils.book_append_sheet(wb,ws,name);
+  }
   const stamp=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,'AT_Printix_Retiradas_'+stamp+'.xlsx');
+  XLSX.writeFile(wb,'AT_Printix_Historial_Flotas_'+stamp+'.xlsx');
 }
 
 function renderAll(){
