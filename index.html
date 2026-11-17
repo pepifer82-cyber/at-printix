@@ -59,11 +59,20 @@ button{border:0;cursor:pointer}
 .launcher{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .app-btn{background:#fff;border:1px solid #dfe6ef;border-radius:10px;padding:12px 11px;text-align:left;box-shadow:0 10px 28px #23456b10;transition:.18s ease;min-width:0}
 .app-btn:hover{transform:translateY(-2px);box-shadow:0 15px 32px #23456b18}
+.app-btn.has-renewal-pending{border-color:#d83b4b;background:linear-gradient(180deg,#fff7f7,#ffebed);box-shadow:0 0 0 2px #d83b4b25,0 12px 30px #d83b4b20}
+.app-btn.has-renewal-pending .app-icon{background:#d83b4b;color:#fff}
 .app-btn.active{border-color:#bcd6ff;box-shadow:0 12px 30px #2878ff20,inset 0 0 0 1px #d9e8ff;background:linear-gradient(180deg,#fff,#f4f8ff)}
 .app-icon{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:#edf5ff;color:#2167db;font-weight:900;font-size:10px;margin-bottom:8px}.app-btn.active .app-icon{background:linear-gradient(135deg,#2878ff,#29b4ef);color:#fff}
 .app-icon.windows-four{display:grid;grid-template-columns:repeat(2,10px);grid-template-rows:repeat(2,10px);gap:2px;background:transparent!important;padding:2px;width:28px;height:28px;border-radius:0}
 .windows-four i{display:block;width:10px;height:10px;border-radius:1px}.windows-four i:nth-child(1){background:#f35325}.windows-four i:nth-child(2){background:#81bc06}.windows-four i:nth-child(3){background:#05a6f0}.windows-four i:nth-child(4){background:#ffba08}
 .app-title{font-weight:800;font-size:13px}.app-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.renewal-tile-title{display:flex;align-items:center;gap:7px;justify-content:space-between}
+.renewal-pending-badge{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:#d83b4b;color:#fff;font-size:11px;font-weight:900;line-height:1;box-shadow:0 0 0 3px #d83b4b20}
+.renewal-pending-badge.hidden{display:none!important}
+.renewal-head-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.renewal-alert-status{font-size:11px;margin:-5px 0 10px}
+html[data-theme="dark"] .app-btn.has-renewal-pending{border-color:#f06a75;background:linear-gradient(180deg,#3c2028,#2e1b22);box-shadow:0 0 0 2px #f06a7525}
+html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .kpi{--kpi-accent:#2f7cf6;--kpi-soft:#eaf2ff;--kpi-ring:#2f7cf626;position:relative;background:linear-gradient(180deg,#fff,var(--kpi-soft));border:1px solid #dbe6f3;border-top:4px solid var(--kpi-accent);border-radius:17px;padding:15px;box-shadow:0 10px 28px #23456b0c}
 .kpi:nth-child(1){--kpi-accent:#2f7cf6;--kpi-soft:#eaf2ff;--kpi-ring:#2f7cf626}
@@ -763,7 +772,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
       <button class="app-btn" data-view="duplicados" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8" y="7" width="12" height="14" rx="2" fill="currentColor" opacity=".18"/><rect x="8" y="7" width="12" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h2"/></svg></div><div class="app-title">Nombres duplicados</div><div class="app-sub">Revisión y alias</div></button><button id="adminTile" class="app-btn hidden" data-view="administrar" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m10 2 4 0 1 3 2 1 3-1 2 3-2 2v3l2 2-2 3-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-3 2-2v-3L2 8l2-3 3 1 2-1 1-3Z" fill="currentColor" opacity=".18"/><path d="m10 2 4 0 1 3 2 1 3-1 2 3-2 2v3l2 2-2 3-3-1-2 1-1 3h-4l-1-3-2-1-3 1-2-3 2-2v-3L2 8l2-3 3 1 2-1 1-3Z"/><circle cx="12" cy="11.5" r="3"/></svg></div><div class="app-title">Administrar</div><div class="app-sub">Usuarios y tarifas</div></button>
       <button id="companiesTile" class="app-btn hidden" data-view="empresas" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 21V4a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 16 4v17" fill="currentColor" opacity=".18"/><path d="M4 21V4a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 16 4v17M2 21h20M8 6h1m3 0h1M8 10h1m3 0h1M8 14h1m3 0h1M10 21v-3h4v3M16 9h3a1 1 0 0 1 1 1v11"/></svg></div><div class="app-title">Empresas</div><div class="app-sub">Clientes y proyectos</div></button>
       <button id="commercialTile" class="app-btn hidden" data-view="comercial" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="14" rx="2" fill="currentColor" opacity=".18"/><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18m-11 0v2h4v-2"/></svg></div><div class="app-title">Ventas y planes</div><div class="app-sub">Licencias y cobros</div></button>
-      <button id="renewalRequestsTile" class="app-btn hidden" data-view="comercial" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v12H8l-4 4V5Z" fill="currentColor" opacity=".18"/><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg></div><div class="app-title">Solicitudes</div><div class="app-sub">Renovación y reactivación</div></button>
+      <button id="renewalRequestsTile" class="app-btn hidden" data-view="comercial" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v12H8l-4 4V5Z" fill="currentColor" opacity=".18"/><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg></div><div class="renewal-tile-title"><div class="app-title">Solicitudes</div><span id="renewalPendingBadge" class="renewal-pending-badge hidden">0</span></div><div class="app-sub">Renovación y reactivación</div></button>
       <button id="assistantTile" class="app-btn" data-view="asistente" type="button"><div class="app-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z" fill="currentColor" opacity=".25"/><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z"/></svg></div><div class="app-title">Asistente IA</div><div class="app-sub">Consultas del panel</div></button>
     </section>
 
@@ -980,7 +989,8 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
     <section id="view-comercial" class="content-card hidden">
       <div class="content-head"><div><h2>Planes, licencias y ventas</h2><small>Configurá servicios, precios, límites, renovaciones y cobros. Los documentos generados aquí son registros internos, no facturas fiscales timbradas.</small></div><button class="toolbar-btn" type="button" onclick="loadCommercialWorkspace()">↻ Actualizar</button></div>
       <div class="renewal-admin-panel" id="renewalAdminPanel">
-        <div class="content-head"><div><h3>Solicitudes de renovación y reactivación</h3><small>Pedidos enviados por todos los clientes, incluso cuando su licencia está vencida.</small></div><button id="refreshRenewalRequestsBtn" class="toolbar-btn" type="button">↻ Actualizar solicitudes</button></div>
+        <div class="content-head"><div><h3>Solicitudes de renovación y reactivación</h3><small>Pedidos enviados por todos los clientes, incluso cuando su licencia está vencida.</small></div><div class="renewal-head-actions"><button id="enableRenewalDesktopAlertsBtn" class="toolbar-btn" type="button">Activar avisos de escritorio</button><button id="refreshRenewalRequestsBtn" class="toolbar-btn" type="button">↻ Actualizar solicitudes</button></div></div>
+        <div id="renewalAlertStatus" class="muted renewal-alert-status">Comprobando solicitudes pendientes…</div>
         <div id="renewalRequestsMsg" class="muted">Cargando solicitudes...</div>
         <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Pedido</th><th>Plan / importe</th><th>Contacto</th><th>Pago</th><th>Mensaje</th><th>Estado / acción</th></tr></thead><tbody id="renewalRequestsBody"></tbody></table></div>
         <h3 class="biz-section-title">Canales de contacto de A&T</h3>
@@ -1367,7 +1377,7 @@ async function login(){
     
   }
 }
-async function logout(){try{await api('/auth/v1/logout',{method:'POST'})}catch{}clearSession();location.reload()}
+async function logout(){stopRenewalRequestWatch();try{await api('/auth/v1/logout',{method:'POST'})}catch{}clearSession();location.reload()}
 let accountEntitlements=null;
 async function loadApp(){
   if(!token())return false;
@@ -1397,6 +1407,7 @@ async function loadApp(){
     $('adminNavBtn').classList.toggle('hidden',!isAdmin);$('adminTile').classList.toggle('hidden',!isAdmin);$('archiveProjectBtn').classList.toggle('hidden',!isAdmin);$('newSerialBtn').classList.toggle('hidden',!isAdmin);$('companiesTile').classList.toggle('hidden',!isAdmin);$('commercialTile').classList.toggle('hidden',!isAdmin);$('renewalRequestsTile').classList.toggle('hidden',!isAdmin);if($('adminCompanyFilterWrap'))$('adminCompanyFilterWrap').classList.toggle('hidden',!isAdmin);
     await loadAccountEntitlements();
     await loadProjects();
+    if(isAdmin)startRenewalRequestWatch();else stopRenewalRequestWatch();
     return true;
   }catch(e){
     $('summaryText').textContent='No se pudo cargar el proyecto.';
@@ -1589,6 +1600,7 @@ function openProject(id){
   setDefaultCounterDates();
   showView('resumen');renderProjectList();loadProjectAgentSerial(id);loadProjectData();
 }
+let activeCommercialTileId='commercialTile';
 function showView(view){
   if(view==='agentes')loadGlobalAgents();
   closePrinterDetailLayout();
@@ -1608,7 +1620,7 @@ $('sidebarCompanyFilter').addEventListener('change',e=>changeSidebarCompanyFilte
 $('inventorySearch').addEventListener('input',e=>{inventorySearch=e.target.value;renderAll()});
 $('refreshBtn').addEventListener('click',()=>currentPrinterDetailId?reloadPrinterDetail():(currentView==='retiradas'?loadRetiredFleet():loadProjectData()));
 $('exportExcelBtn').addEventListener('click',exportProjectExcel);
-document.querySelectorAll('.app-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+document.querySelectorAll('.app-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view&&(view!=='comercial'||b.id===activeCommercialTileId)));
   // Al abrir Contadores, consultar el período predeterminado automáticamente.
   if(view==='contadores')loadCounterHistory(true);
   if(view==='duplicados')renderDuplicateNames();
@@ -4367,6 +4379,121 @@ async function openRenewalRequestDialog(){
   });
 }
 let supportPaymentInstructions='';
+let renewalRequestWatchTimer=null;
+let renewalRequestInitialPoll=true;
+let renewalRequestSeenIds=new Set();
+
+function isPendingRenewalRequest(request){
+  return !['completed','rejected'].includes(String(request?.status||'').toLowerCase());
+}
+function renderRenewalPendingBadge(requests){
+  const pending=(Array.isArray(requests)?requests:[]).filter(isPendingRenewalRequest);
+  const badge=$('renewalPendingBadge'),tile=$('renewalRequestsTile');
+  if(badge){
+    badge.textContent=pending.length>99?'99+':String(pending.length);
+    badge.classList.toggle('hidden',pending.length===0);
+  }
+  if(tile){
+    tile.classList.toggle('has-renewal-pending',pending.length>0);
+    tile.setAttribute('aria-label',pending.length?'Solicitudes: '+pending.length+' pendiente(s)':'Solicitudes de renovación y reactivación');
+    tile.title=pending.length?pending.length+' solicitud(es) pendiente(s) de atención':'Sin solicitudes pendientes';
+  }
+  const status=$('renewalAlertStatus');
+  if(status){
+    status.textContent=pending.length
+      ?'⚠ '+pending.length+' solicitud(es) requieren atención. El indicador se actualiza automáticamente.'
+      :'No hay solicitudes pendientes. La bandeja se revisa automáticamente cada 30 segundos.';
+    status.style.color=pending.length?'#c53040':'';
+    status.style.fontWeight=pending.length?'800':'';
+  }
+}
+function updateRenewalDesktopButton(){
+  const button=$('enableRenewalDesktopAlertsBtn');
+  if(!button)return;
+  if(typeof Notification==='undefined'){
+    button.textContent='Avisos no disponibles';
+    button.disabled=true;
+    return;
+  }
+  if(Notification.permission==='granted'){
+    button.textContent='✓ Avisos de escritorio activados';
+    button.disabled=true;
+  }else if(Notification.permission==='denied'){
+    button.textContent='Avisos bloqueados por el navegador';
+    button.disabled=true;
+  }else{
+    button.textContent='Activar avisos de escritorio';
+    button.disabled=false;
+  }
+}
+async function enableRenewalDesktopAlerts(){
+  if(typeof Notification==='undefined'){
+    atNotify('Este navegador no admite avisos de escritorio. El indicador rojo dentro de A&T Printix seguirá funcionando.','warn',8000);
+    return;
+  }
+  try{
+    const permission=await Notification.requestPermission();
+    updateRenewalDesktopButton();
+    if(permission==='granted'){
+      new Notification('A&T Printix · Avisos activados',{body:'Te avisaremos cuando llegue una nueva solicitud de un cliente.'});
+      $('renewalAlertStatus').textContent='Avisos de escritorio activados. Mantené A&T Printix abierto para detectar nuevas solicitudes.';
+    }else{
+      $('renewalAlertStatus').textContent='El navegador no autorizó los avisos. Podés habilitarlos desde los permisos del sitio.';
+    }
+  }catch(e){atNotify('No se pudo activar el aviso de escritorio: '+e.message,'error')}
+}
+function notifyNewRenewalRequest(request){
+  const title='Nueva solicitud · A&T Printix';
+  const company=request.company_name||'Un cliente';
+  const detail=(request.request_type==='reactivation'?'Solicita reactivación':request.request_type==='renewal'?'Solicita renovación':'Envió una solicitud')+' · '+company;
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    try{
+      const notice=new Notification(title,{body:detail,tag:'at-printix-renewal-'+request.id,requireInteraction:true});
+      notice.onclick=()=>{
+        window.focus();
+        activeCommercialTileId='renewalRequestsTile';
+        showView('comercial');
+        $('renewalAdminPanel')?.scrollIntoView({behavior:'smooth',block:'start'});
+        notice.close();
+      };
+      return;
+    }catch{}
+  }
+  atNotify('Nueva solicitud pendiente: '+detail,'warn',12000);
+}
+async function pollAdminRenewalRequests(){
+  if(!isAdmin||!token())return;
+  try{
+    const data=await api('/rest/v1/rpc/control_admin_list_renewal_requests',{method:'POST',body:'{}'});
+    const requests=Array.isArray(data?.requests)?data.requests:[];
+    renderRenewalPendingBadge(requests);
+    if(renewalRequestInitialPoll){
+      requests.forEach(r=>renewalRequestSeenIds.add(String(r.id)));
+      renewalRequestInitialPoll=false;
+      updateRenewalDesktopButton();
+      return;
+    }
+    const arrivals=requests.filter(r=>isPendingRenewalRequest(r)&&!renewalRequestSeenIds.has(String(r.id)));
+    requests.forEach(r=>renewalRequestSeenIds.add(String(r.id)));
+    arrivals.forEach(notifyNewRenewalRequest);
+  }catch(e){
+    const status=$('renewalAlertStatus');
+    if(status)status.textContent='No se pudo comprobar la bandeja automáticamente: '+e.message;
+  }
+}
+function startRenewalRequestWatch(){
+  stopRenewalRequestWatch();
+  if(!isAdmin)return;
+  renewalRequestInitialPoll=true;
+  renewalRequestSeenIds=new Set();
+  updateRenewalDesktopButton();
+  pollAdminRenewalRequests();
+  renewalRequestWatchTimer=setInterval(pollAdminRenewalRequests,30000);
+}
+function stopRenewalRequestWatch(){
+  if(renewalRequestWatchTimer){clearInterval(renewalRequestWatchTimer);renewalRequestWatchTimer=null}
+}
+
 function renewalWhatsAppLink(request){
   const raw=String(request.contact_phone||request.company_phone||'');
   const phone=raw.replace(/[^0-9]/g,'');
@@ -4389,6 +4516,7 @@ async function loadRenewalRequests(){
     const data=await api('/rest/v1/rpc/control_admin_list_renewal_requests',{method:'POST',body:'{}'});
     const requests=Array.isArray(data?.requests)?data.requests:[];
     $('renewalRequestsMsg').textContent=requests.length+' solicitud(es) registradas.';
+    renderRenewalPendingBadge(requests);
     body.innerHTML=requests.length?requests.map(r=>{
       const when=r.submitted_at?new Date(r.submitted_at).toLocaleString('es-PY'):'—';
       const reqType=renewalRequestLabels[r.request_type]||r.request_type;
@@ -4778,10 +4906,11 @@ document.querySelectorAll('[data-ai-prompt]').forEach(b=>b.addEventListener('cli
 
 $('clientRenewalRequestBtn').addEventListener('click',openRenewalRequestDialog);
 $('refreshRenewalRequestsBtn').addEventListener('click',loadRenewalRequests);
+$('enableRenewalDesktopAlertsBtn').addEventListener('click',enableRenewalDesktopAlerts);
 $('saveSupportContactBtn').addEventListener('click',saveSupportContact);
 $('themeToggleAuth').addEventListener('click',toggleTheme);
 $('themeToggleApp').addEventListener('click',toggleTheme);
-document.querySelectorAll('.app-btn').forEach(b=>b.addEventListener('click',()=>{showView(b.dataset.view);if(b.id==='renewalRequestsTile')$('renewalAdminPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}));
+document.querySelectorAll('.app-btn').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.view==='comercial')activeCommercialTileId=b.id;showView(b.dataset.view);if(b.id==='renewalRequestsTile')$('renewalAdminPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}));
 $('adminNavBtn').addEventListener('click',()=>showView('administrar'));
 $('loginBtn').addEventListener('click',login);$('logoutBtn').addEventListener('click',logout);
 $('forgotPasswordBtn').addEventListener('click',requestPasswordRecovery);
