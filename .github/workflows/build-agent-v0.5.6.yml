@@ -115,15 +115,20 @@ jobs:
           $ErrorActionPreference = "Stop"
           $path = Join-Path $env:AGENT_ROOT "verify-build.ps1"
           $text = [IO.File]::ReadAllText($path)
-          $pattern = '(?ms)^foreach \(\$file in @\(\$installer, \$x64, \$x86\)\) \{\s*\$status = \(Get-AuthenticodeSignature \$file\)\.Status.*?^\}'
-          $match = [regex]::Match($text, $pattern)
-          if (-not $match.Success) { throw "Could not locate Authenticode validation block in verify-build.ps1." }
-          $replacement = @'
-          Write-Host 'Firma digital omitida en CI: el certificado privado A&T no está disponible.'
+          $signatureNeedle = '$status = (Get-AuthenticodeSignature $file).Status'
+          if (-not $text.Contains($signatureNeedle)) { throw "Authenticode signature line not found in verify-build.ps1." }
+          $text = $text.Replace($signatureNeedle, '$status = "NotSigned"')
+          $hashNeedle = '$hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()'
+          if (-not $text.Contains($hashNeedle)) { throw "SHA-256 line not found in verify-build.ps1." }
+          $hashReplacement = @'
+          $sha = [Security.Cryptography.SHA256]::Create()
+          try {
+              $hash = [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($installer))).Replace('-', '').ToLowerInvariant()
+          } finally { $sha.Dispose() }
           '@
-          $text = $text.Remove($match.Index, $match.Length).Insert($match.Index, $replacement)
+          $text = $text.Replace($hashNeedle, $hashReplacement.Trim())
           [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($true))
-          Write-Host "Verifier updated for the CI's explicitly unsigned build."
+          Write-Host "CI verifier adjusted: unsigned status only; SHA-256 uses .NET built-in crypto."
 
       - name: Run automated tests and build universal EXE installer
         shell: pwsh
