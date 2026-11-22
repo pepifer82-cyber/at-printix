@@ -102,7 +102,19 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 .column-picker-panel label:hover{background:#2878ff0d}
 .column-picker-panel input{width:14px;height:14px;margin:0;accent-color:#2878ff;flex:0 0 auto}
 .counter-head{align-items:center}
+.counter-controls-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:0 0 12px}
+.counter-controls-left{display:flex;align-items:flex-end;flex-wrap:wrap;gap:7px;min-width:0}
+.counter-control{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:800;color:#62758c;min-width:0}
+.counter-control .toolbar-input{height:34px;min-width:132px;padding:0 9px;font-size:12px}
+.counter-control select{min-width:148px}
+.counter-date-control input{min-width:142px!important;width:142px}
+.counter-control input:disabled{opacity:.55;cursor:not-allowed}
+.counter-custom-range{display:flex;align-items:flex-end;gap:7px}
+.counter-custom-range.hidden{display:none}
+.counter-search{width:260px;min-width:190px;max-width:320px;margin-left:auto;flex:0 1 260px}
 .counter-column-picker-panel{width:310px;max-height:min(72vh,590px)}
+@media(max-width:1180px){.counter-controls-row{align-items:flex-start;flex-wrap:wrap}.counter-controls-left{align-items:flex-end}.counter-search{margin-left:auto}}
+@media(max-width:640px){.counter-controls-row{display:flex;flex-direction:column;align-items:stretch}.counter-controls-left{display:flex;align-items:stretch}.counter-controls-left>*{max-width:100%}.counter-control{flex:1 1 135px}.counter-control .toolbar-input,.counter-control select,.counter-date-control input{width:100%;min-width:0!important}.counter-custom-range{flex:1 1 100%}.counter-custom-range .counter-control{min-width:0}.counter-search{width:100%;max-width:none;min-width:0;margin-left:0;flex:1 1 100%}}
 #inventoryResizableTable th,#counterResizableTable th{white-space:nowrap}
 #inventoryResizableTable td,#counterResizableTable td{vertical-align:middle}
 #inventoryResizableTable .map-link{color:#1768d5;font-weight:800;text-decoration:none;white-space:nowrap}
@@ -1016,24 +1028,50 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
 
     <section id="view-contadores" class="content-card hidden">
       <div class="content-head counter-head">
-        <div><h3>Reporte de contadores por período</h3><small>Una fila por impresora activa para todo el período seleccionado. Las retiradas no se incluyen y los datos no informados se muestran como «—».</small></div>
-        <div class="content-tools">
-          <details class="column-picker" id="counterColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel counter-column-picker-panel" id="counterColumnOptions"></div></details>
-          <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
-          
+        <div>
+          <h3>Reporte de contadores por período</h3>
+          <small>Una fila por impresora activa para todo el período seleccionado. Las retiradas no se incluyen y los datos no informados se muestran como «—».</small>
         </div>
       </div>
-      <div class="content-tools" style="margin-bottom:12px;align-items:end">
-        <div style="flex:0 0 180px;min-width:160px">
-          <label style="display:block;font-size:11px;font-weight:800;color:#62758c;margin-bottom:5px">Desde</label>
-          <input id="counterFrom" class="toolbar-input" type="date" style="width:100%;min-width:0">
+      <div class="counter-controls-row">
+        <div class="counter-controls-left">
+          <details class="column-picker" id="counterColumnPicker">
+            <summary class="toolbar-btn">☷ Columnas</summary>
+            <div class="column-picker-panel counter-column-picker-panel" id="counterColumnOptions"></div>
+          </details>
+          <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
+          <label class="counter-control">
+            <span>Período</span>
+            <select id="counterPeriodSelect" class="toolbar-input">
+              <option value="thisMonth">Este mes</option>
+              <option value="today">Hoy</option>
+              <option value="yesterday">Ayer</option>
+              <option value="last7">Últimos 7 días</option>
+              <option value="last30">Últimos 30 días</option>
+              <option value="last90">Últimos 90 días</option>
+              <option value="lastMonth">Mes anterior</option>
+              <option value="thisYear">Este año</option>
+              <option value="specific">Fecha específica</option>
+              <option value="custom">Rango personalizado</option>
+            </select>
+          </label>
+          <label class="counter-control counter-date-control">
+            <span>Fecha</span>
+            <input id="counterDateSelect" class="toolbar-input" type="date" disabled>
+          </label>
+          <div id="counterCustomRange" class="counter-custom-range hidden">
+            <label class="counter-control">
+              <span>Desde</span>
+              <input id="counterFrom" class="toolbar-input" type="date">
+            </label>
+            <label class="counter-control">
+              <span>Hasta</span>
+              <input id="counterTo" class="toolbar-input" type="date">
+            </label>
+          </div>
+          <button id="counterQueryBtn" class="toolbar-btn" type="button">Consultar</button>
         </div>
-        <div style="flex:0 0 180px;min-width:160px">
-          <label style="display:block;font-size:11px;font-weight:800;color:#62758c;margin-bottom:5px">Hasta</label>
-          <input id="counterTo" class="toolbar-input" type="date" style="width:100%;min-width:0">
-        </div>
-        <button id="counterQueryBtn" class="toolbar-btn" type="button">Consultar</button>
-        
+        <input id="counterSearch" class="toolbar-input counter-search" type="search" placeholder="Buscar impresora, modelo, serie o IP..." aria-label="Buscar en el reporte de contadores">
       </div>
       <div id="counterMsg" class="muted" style="font-size:12px;margin:2px 0 10px">Elegí un período para consultar.</div>
       <div class="table-wrap"><table id="counterResizableTable" class="column-resize-table"><thead><tr><th>Proyecto / Contrato</th></tr></thead><tbody id="counterBody"></tbody></table></div>
@@ -1746,8 +1784,14 @@ function showView(view){
   if(view==='comercial')loadCommercialWorkspace();
   if(view==='seriales')loadAllProjectSerials();
   if(view==='retiradas')loadRetiredFleet();
-  $('counterQueryBtn').addEventListener('click',()=>loadCounterHistory(true));
-$('counterExcelBtn').addEventListener('click',exportCountersExcel);
+  $('counterQueryBtn').onclick=()=>loadCounterHistory(true);
+  $('counterExcelBtn').onclick=exportCountersExcel;
+  $('counterPeriodSelect').onchange=e=>applyCounterPeriodSelection(e.target.value,true);
+  $('counterDateSelect').onchange=()=>{
+    if($('counterPeriodSelect').value!=='specific')$('counterPeriodSelect').value='specific';
+    applyCounterPeriodSelection('specific',true);
+  };
+  $('counterSearch').oninput=()=>renderCounterRows();
 $('projectSearch').addEventListener('input',e=>{projectSearch=e.target.value;renderProjectList()});
 $('sidebarCompanyFilter').addEventListener('change',e=>changeSidebarCompanyFilter(e.target.value));
 $('inventorySearch').addEventListener('input',e=>{inventorySearch=e.target.value;renderAll()});
@@ -4141,6 +4185,49 @@ function setDefaultCounterDates(){
   const from=$('counterFrom'),to=$('counterTo');
   if(from&&!from.value)from.value=isoDateLocal(first);
   if(to&&!to.value)to.value=isoDateLocal(now);
+  const period=$('counterPeriodSelect');
+  const date=$('counterDateSelect');
+  const custom=$('counterCustomRange');
+  if(period&&!period.value)period.value='thisMonth';
+  if(date)date.disabled=period?.value!=='specific';
+  if(custom)custom.classList.toggle('hidden',period?.value!=='custom');
+}
+function applyCounterPeriodSelection(mode,shouldLoad=true){
+  const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const dateInput=$('counterDateSelect');
+  const customRange=$('counterCustomRange');
+  if(dateInput)dateInput.disabled=mode!=='specific';
+  if(customRange)customRange.classList.toggle('hidden',mode!=='custom');
+  if(mode==='custom')return;
+  let from='',to='';
+  const end=new Date(today);
+  const start=new Date(today);
+  switch(mode){
+    case 'today':break;
+    case 'yesterday':start.setDate(start.getDate()-1);end.setDate(end.getDate()-1);break;
+    case 'last7':start.setDate(start.getDate()-6);break;
+    case 'last30':start.setDate(start.getDate()-29);break;
+    case 'last90':start.setDate(start.getDate()-89);break;
+    case 'lastMonth':
+      start.setDate(1);start.setMonth(start.getMonth()-1);
+      end.setDate(0);
+      break;
+    case 'thisYear':start.setMonth(0,1);break;
+    case 'specific':{
+      const chosen=dateInput?.value||isoDateLocal(today);
+      if(dateInput&&!dateInput.value)dateInput.value=chosen;
+      from=chosen;to=chosen;
+      break;
+    }
+    case 'thisMonth':
+    default:start.setDate(1);break;
+  }
+  if(!from)from=isoDateLocal(start);
+  if(!to)to=isoDateLocal(end);
+  if($('counterFrom'))$('counterFrom').value=from;
+  if($('counterTo'))$('counterTo').value=to;
+  if(shouldLoad&&currentView==='contadores'&&currentProjectId)loadCounterHistory(true);
 }
 function validateCounterDates(){
   const from=$('counterFrom')?.value||'';
@@ -4510,20 +4597,31 @@ function aggregateCounterPeriodRows(dailyRows){
     return item;
   }).sort((a,b)=>String(a.printer||'').localeCompare(String(b.printer||''),'es'));
 }
+function counterRowsMatchingSearch(sourceRows=counterRows){
+  const query=String($('counterSearch')?.value||'').trim().toLocaleLowerCase('es-PY');
+  if(!query)return sourceRows;
+  return sourceRows.filter(row=>{
+    const searchable=COUNTER_COLUMN_DEFS.map(col=>col.value(row));
+    searchable.push(row.printer,row.display_name,row.manufacturer,row.model,row.serial_number,row.ip_address,row.reference,row.location,row.mac_address);
+    return searchable.filter(v=>v!==null&&v!==undefined).join(' ').toLocaleLowerCase('es-PY').includes(query);
+  });
+}
 function renderCounterRows(){
   const body=$('counterBody');
   const table=$('counterResizableTable');
   const head=table?.tHead?.rows?.[0];
   if(!body||!head)return;
   const columns=COUNTER_COLUMN_DEFS.filter(col=>counterVisibleColumns.has(col.id));
+  const visibleRows=counterRowsMatchingSearch();
   head.innerHTML=columns.map(col=>'<th>'+escapeHtml(col.label)+'</th>').join('');
-  if(!counterRows.length){
-    body.innerHTML='<tr><td colspan="'+Math.max(1,columns.length)+'" class="empty">No hay lecturas guardadas de impresoras en el período.</td></tr>';
+  if(!visibleRows.length){
+    const message=counterRows.length?'No hay impresoras que coincidan con la búsqueda.':'No hay lecturas guardadas de impresoras en el período.';
+    body.innerHTML='<tr><td colspan="'+Math.max(1,columns.length)+'" class="empty">'+escapeHtml(message)+'</td></tr>';
     renderCounterColumnPicker();
     syncCounterColumnChecks();
     return;
   }
-  body.innerHTML=counterRows.map(r=>{
+  body.innerHTML=visibleRows.map(r=>{
     const cells=columns.map(col=>{
       if(col.id==='serial'){
         return '<td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora, no el serial de activación del proyecto" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
@@ -4556,8 +4654,13 @@ async function exportCountersExcel(){
     atNotify('No hay lecturas guardadas de impresoras en ese período.'+detail,'error');
     return;
   }
+  const exportRows=counterRowsMatchingSearch(data);
+  if(!exportRows.length){
+    atNotify('No hay impresoras que coincidan con la búsqueda actual.','error');
+    return;
+  }
   const p=projects.find(x=>String(x.id)===String(currentProjectId));
-  const report=data.map(r=>Object.fromEntries(
+  const report=exportRows.map(r=>Object.fromEntries(
     COUNTER_COLUMN_DEFS
       .filter(col=>counterVisibleColumns.has(col.id))
       .map(col=>[col.label,col.value(r)])
