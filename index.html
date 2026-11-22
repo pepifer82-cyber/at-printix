@@ -4548,6 +4548,7 @@ async function exportCountersExcel(){
     atNotify('No hay lecturas guardadas de impresoras en ese período.'+detail,'error');
     return;
   }
+  const p=projects.find(x=>String(x.id)===String(currentProjectId));
   const report=data.map(r=>Object.fromEntries(
     COUNTER_COLUMN_DEFS
       .filter(col=>counterVisibleColumns.has(col.id))
