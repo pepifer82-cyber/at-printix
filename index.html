@@ -3843,7 +3843,7 @@ const INVENTORY_COLUMN_DEFS=[
   {id:'mobile',label:'Móvil',value:r=>inventoryFirstValue(r,['mobile','mobile_phone','cell_phone','whatsapp'])||'—'},
   {id:'email',label:'Correo',value:r=>inventoryFirstValue(r,['email','contact_email','email_address'])||accountEntitlements?.company_email||'—'},
   {id:'ip',label:'Dirección IP',value:r=>realIpOf(r)||printerIpValue(r)||'—'},
-  {id:'hostname',label:'Hostname',value:r=>inventoryFirstValue(r,['hostname','host_name','computer_name','machine_name'])||'—'},
+  {id:'hostname',label:'Hostname',value:r=>inventoryFirstValue(r,['hostname','host_name','computer_name','machine_name'])||agentRows.find(a=>String(a.id)===String(r.agent_id))?.machine_name||r.agent_code||'—'},
   {id:'class',label:'Clase',value:r=>inventoryFirstValue(r,['device_class','printer_class','class','device_type','category'])||connectionLabel(r)||'—'},
   {id:'lastUpdate',label:'Última actualización',value:r=>lastContact(r.reading_at||r.updated_at||r.last_seen_at)},
   {id:'pending',label:'Pendiente',value:r=>inventoryFormatValue(inventoryFirstValue(r,['pending','is_pending','pending_status','pending_reason']))},
