@@ -2864,6 +2864,13 @@ function printerInventoryLabel(r){
   // En ese caso, MDL contiene el modelo comercial; MFG/CMD/CLS/DES son metadatos.
   const mdl=name.match(/(?:^|[;\s])MDL\s*:\s*([^;\r\n]+)/i);
   if(mdl?.[1])name=mdl[1].trim();
+  // Quitar datos de conexión que algunos controladores agregan al nombre/modelo.
+  // La conexión real se muestra en su propia columna/ficha, nunca como parte del modelo.
+  name=name
+    .replace(/\\s*[([]\\s*(?:USB(?:00\\d+)?|WSD(?:[-_\\s][^)\\]]*)?|TCP\\s*[/_-]?\\s*IP|IP[_ -]?\\d{1,3}(?:[._-]\\d{1,3}){3}|\\\\\\\\[^)\\]]*)\\s*[)\\]]\\s*$/i,'')
+    .replace(/\\s+(?:[-–—]\\s*)?(?:USB(?:00\\d+)?|WSD(?:[-_\\s]+[A-Z0-9_.-]+)?|TCP\\s*[/_-]?\\s*IP)\\s*$/i,'')
+    .replace(/\\s*[-–—]\\s*(?:IP[_ -]?)?\\d{1,3}(?:[._-]\\d{1,3}){3}(?::\\d+)?\\s*$/i,'')
+    .trim();
   // Los sufijos de cola/controlador de Windows no forman parte del modelo físico.
   for(let i=0;i<3;i++){
     const previous=name;
