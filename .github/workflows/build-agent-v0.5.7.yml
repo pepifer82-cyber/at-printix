@@ -88,9 +88,12 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $partsDir = Join-Path $env:GITHUB_WORKSPACE "agent/patch-0.5.7"
-          $path = Join-Path $partsDir "part-01.b64"
-          if (-not (Test-Path $path)) { throw "Missing 0.5.7 patch chunk: part-01.b64" }
-          $encoded = [IO.File]::ReadAllText($path, [Text.Encoding]::ASCII).Trim()
+          $encoded = ""
+          foreach ($name in @("part-01.b64","part-02.b64","part-03.b64","part-04.b64")) {
+            $path = Join-Path $partsDir $name
+            if (-not (Test-Path $path)) { throw "Missing 0.5.7 patch chunk: $name" }
+            $encoded += [IO.File]::ReadAllText($path, [Text.Encoding]::ASCII).Trim()
+          }
           $bytes = [Convert]::FromBase64String($encoded)
           $gzip = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch.gz"
           [IO.File]::WriteAllBytes($gzip, $bytes)
