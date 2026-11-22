@@ -4668,20 +4668,23 @@ async function refreshAgentRemoteCommands(prefill){
   const state=(freshAgent?.remote_config)||(localAgent?.remote_config)||{};
   const hasPending=(list||[]).some(c=>['queued','running'].includes(c.status));
   renderRemoteNetworkLists(state,list||[]);
-  if(state.reported_at&&(prefill||!hasPending)){
+  if(state.reported_at){
     $('remoteUsbEnabled').checked=state.usb_control_enabled===true;
     $('remoteNetworkEnabled').checked=state.network_scan_enabled===true;
     $('remoteInterval').value=String([1800,3600,7200].includes(Number(state.sync_interval_seconds))?Number(state.sync_interval_seconds):1800);
-    $('remoteAgentSnapshot').innerHTML='<b>Última comunicación: '+escapeHtml(new Date(state.reported_at).toLocaleString())+'</b><br>USB: '+(state.usb_control_enabled?'activado':'desactivado')+' · Red: '+(state.network_scan_enabled?'activada':'desactivada')+' · Intervalo: '+escapeHtml(Number(state.sync_interval_seconds)/60)+' min';
-  }else if(prefill&&!state.reported_at){
-    const u=(list||[]).find(c=>c.command==='set_usb_control'),n=(list||[]).find(c=>c.command==='set_network_scan'),i=(list||[]).find(c=>c.command==='set_interval');
-    if(u&&typeof u.payload?.enabled==='boolean')$('remoteUsbEnabled').checked=u.payload.enabled;
-    if(n&&typeof n.payload?.enabled==='boolean')$('remoteNetworkEnabled').checked=n.payload.enabled;
-    if(i&&[1800,3600,7200].includes(Number(i.payload?.seconds)))$('remoteInterval').value=String(i.payload.seconds);
-    $('remoteAgentSnapshot').textContent='Esta instalación todavía no reportó su configuración. Las direcciones pendientes aparecen en las listas mientras el agente las aplica.';
-  }else if(hasPending){
-    $('remoteAgentSnapshot').innerHTML='Hay cambios esperando o procesándose. Las listas muestran las altas y bajas solicitadas; el agente confirmará su aplicación al sincronizar.';
+  }else if(prefill){
+    $('remoteAgentSnapshot').textContent='Esta instalación todavía no reportó su configuración. Los cambios enviados aparecerán en las listas como pendientes mientras el agente los aplica.';
   }
+  const pendingCommands=[...(list||[])].filter(c=>['queued','running'].includes(c.status)).sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||'')));
+  pendingCommands.forEach(command=>{
+    const payload=command.payload||{};
+    if(command.command==='set_usb_control'&&typeof payload.enabled==='boolean')$('remoteUsbEnabled').checked=payload.enabled;
+    if(command.command==='set_network_scan'&&typeof payload.enabled==='boolean')$('remoteNetworkEnabled').checked=payload.enabled;
+    if(command.command==='set_interval'&&[1800,3600,7200].includes(Number(payload.seconds)))$('remoteInterval').value=String(payload.seconds);
+  });
+  const lastReport=state.reported_at?'Última comunicación: '+new Date(state.reported_at).toLocaleString()+' · ':'';
+  const pendingText=pendingCommands.length?' · '+pendingCommands.length+' cambio(s) esperando al agente':'';
+  $('remoteAgentSnapshot').innerHTML='<b>'+escapeHtml(lastReport+(pendingCommands.length?'Configuración actual / cambios pendientes':'Configuración reportada'))+'</b><br>USB: '+($('remoteUsbEnabled').checked?'activado':'desactivado')+' · Red: '+($('remoteNetworkEnabled').checked?'activada':'desactivada')+' · Intervalo: '+escapeHtml(Number($('remoteInterval').value)/60)+' min'+escapeHtml(pendingText);
   const ipHost=$('remoteIpList'),rangeHost=$('remoteRangeList');
   [ipHost,rangeHost].forEach(host=>{
     if(!host||host.dataset.removeBound==='1')return;
