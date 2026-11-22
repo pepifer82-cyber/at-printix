@@ -2860,6 +2860,10 @@ function connectionLabel(r){
 function printerInventoryLabel(r){
   let name=String(r?.model||r?.display_name||r?.printer_name||r?.name||'Ver ficha').trim();
   const manufacturer=String(r?.manufacturer||'').trim();
+  // Algunos equipos envían la identificación IEEE-1284 completa en el campo modelo.
+  // En ese caso, MDL contiene el modelo comercial; MFG/CMD/CLS/DES son metadatos.
+  const mdl=name.match(/(?:^|[;\\s])MDL\\s*:\\s*([^;\\r\\n]+)/i);
+  if(mdl?.[1])name=mdl[1].trim();
   // Los sufijos de cola/controlador de Windows no forman parte del modelo físico.
   for(let i=0;i<3;i++){
     const previous=name;
