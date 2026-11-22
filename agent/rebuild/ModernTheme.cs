@@ -257,7 +257,7 @@ internal static class ModernTheme
         else if (control is Panel panel)
         {
             panel.BackColor = Equals(panel.Tag, "at-header") ? Header :
-                Equals(panel.Tag, "at-logo") ? Card : Panel;
+                Equals(panel.Tag, "at-logo") ? Card : SurfaceColor;
         }
 
         foreach (Control child in control.Controls)
