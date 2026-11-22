@@ -1,0 +1,113 @@
+name: Build A&T Printix Agent 0.5.4 Futuristic
+
+on:
+  push:
+    branches:
+      - agent-rebuild/futuristic-0.5.4
+    paths:
+      - .github/workflows/build-agent-futuristic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download and verify official 0.5.3 source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.3/agent-v0.5.3-source.zip'
+          $zip = Join-Path $env:RUNNER_TEMP 'agent-v0.5.3-source.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          $expected = 'cf15688c17042b3f7eebfb57ca96f7e44f794882c4d33eb3eb2afdee0f9ec818'
+          Write-Host "Source SHA256: $hash"
+          if ($hash -ne $expected) { throw 'Official 0.5.3 source checksum mismatch.' }
+          Expand-Archive -Path $zip -DestinationPath $env:GITHUB_WORKSPACE -Force
+          if (-not (Test-Path (Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.3\build.bat'))) {
+            throw 'Official source archive did not extract to expected folder.'
+          }
+
+      - name: Apply verified 0.5.4 engine changes and futuristic UI
+        run: python agent/rebuild/apply_futuristic_build.py
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          $pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $iscc = Join-Path $pf86 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe not found.' }
+
+      - name: Build, run tests and verify installer
+        shell: cmd
+        run: |
+          cd /d "%GITHUB_WORKSPACE%\agent-v0.5.3"
+          set AT_SKIP_SIGNING=1
+          call build.bat
+          if errorlevel 1 exit /b 1
+          if not exist "Instalar_ATPrinterAgent_v0.5.4.exe" exit /b 1
+          if not exist "SHA256SUMS.txt" exit /b 1
+
+      - name: Package clean source archive and build info
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = @'
+          from pathlib import Path
+          import zipfile
+          root = Path(r"agent-v0.5.3")
+          out = Path("agent-v0.5.4-source.zip")
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+              for p in root.rglob("*"):
+                  if not p.is_file():
+                      continue
+                  rel = p.relative_to(root)
+                  if rel.parts[0].startswith("publish-") or p.suffix.lower() in {".exe", ".pdb"}:
+                      continue
+                  if p.name == "SHA256SUMS.txt":
+                      continue
+                  z.write(p, Path("agent-v0.5.4") / rel)
+          '@
+          $python | python -
+          if (-not (Test-Path 'agent-v0.5.4-source.zip')) { throw 'Source ZIP was not created.' }
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.3\Instalar_ATPrinterAgent_v0.5.4.exe'
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          @"
+          A&T Printix Agent 0.5.4 — Futuristic Edition
+          Installer: Instalar_ATPrinterAgent_v0.5.4.exe
+          SHA256: $hash
+          Unsigned: build runner has no A&T private signing certificate.
+          "@ | Set-Content (Join-Path $env:GITHUB_WORKSPACE 'BUILD_INFO.txt') -Encoding UTF8
+          Write-Host "Installer SHA256: $hash"
+
+      - name: Upload verified build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AandT-Printix-Agent-0.5.4-Futuristic
+          path: |
+            agent-v0.5.3/Instalar_ATPrinterAgent_v0.5.4.exe
+            agent-v0.5.3/SHA256SUMS.txt
+            agent-v0.5.4-source.zip
+            BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30
