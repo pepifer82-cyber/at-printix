@@ -4262,14 +4262,24 @@ const INVENTORY_COLUMN_DEFS=[
   {id:'extra5',label:'Extra 5',value:r=>inventoryMetadataValue(r,'extra5',['extra_5','extra5','custom_field_5','custom5','additional_field_5'])||'—'},
   {id:'retire',label:'Retirar',value:()=>''}
 ];
-const INVENTORY_REQUIRED_MANUAL_COLUMNS=['description','serial','reference','country','province','postalCode','city','address','map','floor','department','contact','phone','mobile','email','pending','installation','extra1','extra2','extra3','extra4','extra5'];
-const INVENTORY_DEFAULT_COLUMNS=['project','manufacturer','model',...INVENTORY_REQUIRED_MANUAL_COLUMNS,'ip','lastUpdate','hostname','class','retire'];
+// Vista compacta inicial del inventario. Los campos opcionales se activan solo si el usuario los elige.
+const INVENTORY_DEFAULT_COLUMNS=['project','manufacturer','model','description','city','address','serial','ip','lastUpdate','retire'];
+const INVENTORY_COLUMNS_STORAGE_KEY='atprintix-inventory-visible-columns-v3';
+const INVENTORY_LEGACY_COLUMNS_STORAGE_KEY='atprintix-inventory-visible-columns-v2';
+const INVENTORY_LEGACY_HIDDEN_COLUMNS=new Set(['map','phone','mobile']);
 let inventoryVisibleColumns=new Set(INVENTORY_DEFAULT_COLUMNS);
 try{
-  const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns-v2')||'null');
-  if(Array.isArray(saved))inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
-  // La descripción debe quedar visible también en navegadores que ya guardaron preferencias anteriores.
-  INVENTORY_REQUIRED_MANUAL_COLUMNS.forEach(id=>inventoryVisibleColumns.add(id));
+  const saved=JSON.parse(localStorage.getItem(INVENTORY_COLUMNS_STORAGE_KEY)||'null');
+  if(Array.isArray(saved)){
+    inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
+  }else{
+    const legacy=JSON.parse(localStorage.getItem(INVENTORY_LEGACY_COLUMNS_STORAGE_KEY)||'null');
+    if(Array.isArray(legacy)){
+      // Conserva las preferencias anteriores y retira los campos que el usuario ya decidió no mostrar.
+      inventoryVisibleColumns=new Set(legacy.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)&&!INVENTORY_LEGACY_HIDDEN_COLUMNS.has(id)));
+    }
+    localStorage.setItem(INVENTORY_COLUMNS_STORAGE_KEY,JSON.stringify([...inventoryVisibleColumns]));
+  }
 }catch{}
 function renderInventoryColumnPicker(){
   const panel=$('inventoryColumnOptions');
@@ -4285,7 +4295,7 @@ function syncInventoryColumnChecks(){
 function setInventoryColumnVisible(id,visible){
   if(!INVENTORY_COLUMN_DEFS.some(col=>col.id===id))return;
   if(visible)inventoryVisibleColumns.add(id);else inventoryVisibleColumns.delete(id);
-  try{localStorage.setItem('atprintix-inventory-visible-columns-v2',JSON.stringify([...inventoryVisibleColumns]))}catch{}
+  try{localStorage.setItem(INVENTORY_COLUMNS_STORAGE_KEY,JSON.stringify([...inventoryVisibleColumns]))}catch{}
   renderAll();
   syncInventoryColumnChecks();
 }
