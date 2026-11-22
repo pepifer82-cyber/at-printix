@@ -2728,7 +2728,11 @@ async function saveManualPrinterCounter(event){
   }
 }
 
+function canEditPrinterDescription(){
+  return !!isAdmin||['owner','admin'].includes(String(accountEntitlements?.role||'').toLowerCase());
+}
 function openPrinterEditor(id){
+  if(!canEditPrinterDescription()){atNotify('Solo el administrador o un usuario autorizado puede modificar los datos manuales de la impresora.','error');return}
   const r=rows.find(x=>String(x.printer_id)===String(id))||retiredFleetRows.find(x=>String(x.printer_id)===String(id));if(!r)return;
   $('editPrinterId').value=id;
   $('editDescription').value=r.description||'';
@@ -2739,6 +2743,7 @@ function openPrinterEditor(id){
 }
 function closePrinterEditor(){$('printerModal').classList.add('hidden')}
 async function savePrinterMeta(){
+  if(!canEditPrinterDescription()){atNotify('No tenés permisos para modificar la descripción de la impresora.','error');return}
   const id=$('editPrinterId').value;
   if(!id)return;
   const description=$('editDescription').value.trim();
@@ -2764,6 +2769,10 @@ async function savePrinterInline(el){
   const id=el.dataset.printerId;
   const field=el.dataset.field;
   if(!id||!['description','city','serial_number'].includes(field))return;
+  if(field==='description'&&!canEditPrinterDescription()){
+    atNotify('Solo el administrador o un usuario autorizado puede modificar la descripción.','error');
+    return;
+  }
 
   const r=rows.find(x=>String(x.printer_id)===String(id));
   if(!r)return;
@@ -2815,6 +2824,7 @@ async function savePrinterInline(el){
     });
 
     el.value=String(updated[field]??'');
+    if(field==='description'&&currentView==='inventario')renderAll();
 
   }catch(e){
     el.value=previousValues[field];
@@ -4194,6 +4204,13 @@ function renderInventoryTable(visibleInventory,activeRows){
   const term=inventorySearch.trim();
   body.innerHTML=visibleInventory.length?visibleInventory.map(r=>{
     const cells=columns.map(col=>{
+      if(col.id==='description'){
+        const value=String(r.description??'');
+        if(canEditPrinterDescription()){
+          return '<td class="inventory-description-cell"><input class="inline-edit description-edit" type="text" maxlength="240" placeholder="Agregar descripción…" title="Descripción manual. Se guarda automáticamente al salir del campo." aria-label="Descripción manual de la impresora" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
+        }
+        return '<td>'+escapeHtml(value||'—')+'</td>';
+      }
       if(col.id==='model'){
         return '<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="Abrir ficha completa">'+escapeHtml(col.value(r))+'</button></td>';
       }
@@ -4202,7 +4219,7 @@ function renderInventoryTable(visibleInventory,activeRows){
         return '<td>'+(url?'<a class="map-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir mapa</a>':'—')+'</td>';
       }
       if(col.id==='retire'){
-        return '<td class="inventory-actions"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></td>';
+        return '<td class="inventory-actions">'+(canEditPrinterDescription()?'<button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar datos</button> ':'')+'<button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></td>';
       }
       return '<td>'+escapeHtml(inventoryFormatValue(col.value(r,activeRows)))+'</td>';
     }).join('');
