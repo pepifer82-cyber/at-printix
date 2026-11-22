@@ -18,7 +18,6 @@ internal static class ModernTheme
         form.BackColor = Background;
         form.ForeColor = Text;
         form.Font = new Font("Segoe UI", 9.25F);
-        form.DoubleBuffered = true;
 
         var header = form.Controls.OfType<Panel>().FirstOrDefault(p => p.Dock == DockStyle.Top);
         if (header is not null)
