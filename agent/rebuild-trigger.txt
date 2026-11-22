@@ -1,1 +1,1 @@
-Rebuild with Windows CRLF-to-LF normalization for exact patch SHA-256 verification.
+Validate reconstructed patch with LF-normalized checksum and git apply context checks.
