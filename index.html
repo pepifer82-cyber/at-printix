@@ -1960,7 +1960,7 @@ async function loadAllProjectSerials(){
       if(others.length){
         projectCell+='<div style="font-size:10.5px;margin-top:4px;max-width:260px"><span style="background:#fef3c7;color:#92400e;font-weight:700;padding:1px 7px;border-radius:999px;font-size:10.5px">⚠ Asignación duplicada: '+escapeHtml(others.join(', '))+'</span><br>Retírala de los proyectos incorrectos antes de reasignarla.\n'+others.map(name=>{const match=all.find(x=>x.project_name===name&&((printerNormalizedSerial(r)&&printerNormalizedSerial(x)===printerNormalizedSerial(r))||(printerNormalizedMac(r)&&printerNormalizedMac(x)===printerNormalizedMac(r))));return match?'<button class="icon-btn" style="margin:4px 4px 0 0" type="button" onclick="openProjectInventory('+escapeHtml(JSON.stringify(String(match.project_id)))+')">Abrir '+escapeHtml(name)+' para retirar</button>':''}).join('')+'</div>';
       }
-      return '<tr'+(others.length?' class="cross-project-dup"':'')+'><td>'+projectCell+'</td><td>'+escapeHtml(r.display_name||'Impresora detectada')+'</td><td>'+escapeHtml([printerManufacturerValue(r),printerInventoryLabel(r)].filter(Boolean).join(' / ')||'—')+'</td><td><code>'+escapeHtml(validSerial?serial:'—')+'</code></td><td>'+escapeHtml(readState)+'</td><td>'+escapeHtml(source)+'</td><td>'+escapeHtml(connectionLabel(r)+' · '+printerIpPort(r))+'</td><td>'+escapeHtml(printerDriverValue(r)||'—')+'</td><td>'+escapeHtml(status)+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td class="serial-actions"><button class="icon-btn" type="button" data-global-printer-action data-project-id="'+escapeHtml(projectId)+'" data-printer-id="'+escapeHtml(r.printer_id||'')+'" data-printer-name="'+escapeHtml(r.display_name||'Impresora detectada')+'" data-printer-serial="'+escapeHtml(validSerial?serial:'')+'" title="Acciones de impresora" aria-label="Acciones de impresora">⚙</button></td></tr>';
+      return '<tr'+(others.length?' class="cross-project-dup"':'')+'><td>'+projectCell+'</td><td>'+escapeHtml(printerInventoryLabel(r)||'Impresora detectada')+'</td><td>'+escapeHtml([printerManufacturerValue(r),printerInventoryLabel(r)].filter(Boolean).join(' / ')||'—')+'</td><td><code>'+escapeHtml(validSerial?serial:'—')+'</code></td><td>'+escapeHtml(readState)+'</td><td>'+escapeHtml(source)+'</td><td>'+escapeHtml(connectionLabel(r)+' · '+printerIpPort(r))+'</td><td>'+escapeHtml(printerDriverValue(r)||'—')+'</td><td>'+escapeHtml(status)+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td class="serial-actions"><button class="icon-btn" type="button" data-global-printer-action data-project-id="'+escapeHtml(projectId)+'" data-printer-id="'+escapeHtml(r.printer_id||'')+'" data-printer-name="'+escapeHtml(printerInventoryLabel(r)||'Impresora detectada')+'" data-printer-serial="'+escapeHtml(validSerial?serial:'')+'" title="Acciones de impresora" aria-label="Acciones de impresora">⚙</button></td></tr>';
     }).join(''):'<tr><td colspan="12" class="empty">Todavía no se detectaron impresoras. Cuando conectes una impresora y el agente la descubra, aparecerá aquí.</td></tr>';
     body.querySelectorAll('[data-global-printer-action]').forEach(button=>{
       button.addEventListener('click',()=>{
@@ -2925,10 +2925,29 @@ function realIpOf(r){
   return hasRealIp(r)?ip:'';
 }
 
+// Identidad física: el nombre y el modelo nunca son prueba suficiente para fusionar equipos.
+function printerSerialIdentityKey(r){
+  const value=String(printerSerialValue(r)||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  return /^(?:0+|f+|unknown|none|null|na|notavailable|noserial|serialnumber)$/i.test(value)?'':value;
+}
+function printerMacIdentityKey(r){
+  const value=String(printerMacValue(r)||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
+  return value.length===12&&!/^(?:0{12}|f{12})$/i.test(value)?value:'';
+}
+function printerIdentityConflict(a,b){
+  const sa=printerSerialIdentityKey(a),sb=printerSerialIdentityKey(b);
+  const ma=printerMacIdentityKey(a),mb=printerMacIdentityKey(b);
+  return !!(sa&&sb&&sa!==sb)||!!(ma&&mb&&ma!==mb);
+}
+function sameStrongPrinterIdentity(a,b){
+  if(printerIdentityConflict(a,b))return false;
+  const sa=printerSerialIdentityKey(a),sb=printerSerialIdentityKey(b);
+  const ma=printerMacIdentityKey(a),mb=printerMacIdentityKey(b);
+  return (!!sa&&sa===sb)||(!!ma&&ma===mb);
+}
+
 function printerFamilyKey(r){
-  const raw=[
-    r?.manufacturer,r?.model,r?.display_name,r?.printer_name,r?.windows_printer_name
-  ].filter(Boolean).join(' ').toLowerCase();
+  const raw=[r?.manufacturer,printerInventoryLabel(r)].filter(Boolean).join(' ').toLowerCase();
 
   // Normaliza lo suficiente para reconocer que "M428f-M429f", 
   // "M428f-M429f PCL-6 (V4) (Red)" y "M428fdw" 
@@ -2978,6 +2997,9 @@ function sameNetworkFamily(a,b){
   const aNetwork=/^WSD/i.test(aPort)||/^IPP/i.test(aPort)||aConn.includes('ip')||aConn.includes('red')||aConn.includes('wsd')||!!realIpOf(a);
   const bNetwork=/^WSD/i.test(bPort)||/^IPP/i.test(bPort)||bConn.includes('ip')||bConn.includes('red')||bConn.includes('wsd')||!!realIpOf(b);
   if(!(aNetwork&&bNetwork))return false;
+  // Dos colas de la misma familia no son el mismo equipo: deben compartir
+  // un número de serie o una MAC física válida.
+  if(!sameStrongPrinterIdentity(a,b))return false;
 
   const aa=String(a?.agent_code||a?.agent_id||'').trim().toLowerCase();
   const bb=String(b?.agent_code||b?.agent_id||'').trim().toLowerCase();
@@ -3056,7 +3078,7 @@ function mergePrinterRecords(records){
 }
 
 function printerPhysicalModelKey(r){
-  const raw=[r?.manufacturer,r?.model,r?.display_name,r?.windows_printer_name].filter(Boolean).join(' ').toLowerCase();
+  const raw=[r?.manufacturer,printerInventoryLabel(r)].filter(Boolean).join(' ').toLowerCase();
   const brandAliases=[
     ['hp',/\b(?:hp|hewlett[ -]?packard)\b/i],
     ['pantum',/\bpantum\b/i],
@@ -3163,6 +3185,8 @@ function samePhysicalTransportAlias(a,b){
   if(!aa||!bb||aa!==bb)return false;
   const ma=printerPhysicalModelKey(a),mb=printerPhysicalModelKey(b);
   if(!ma||!mb)return false;
+  // Un alias USB/red o IP/cola requiere una identidad física coincidente.
+  if(!sameStrongPrinterIdentity(a,b))return false;
   const [brandA,...modelsA]=ma.split('|'),[brandB,...modelsB]=mb.split('|');
   if(brandA!==brandB||!modelsA.some(model=>modelsB.includes(model)))return false;
   const sa=String(a?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -3219,12 +3243,9 @@ function dedupePrinterRows(source){
   const input=Array.isArray(source)?source.filter(Boolean):[];
   const groups=[];
   const used=new Set();
-  const normalizedSerial=r=>String(r?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
-  const normalizedMac=r=>String(r?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
-  const serialConflict=(a,b)=>{
-    const sa=normalizedSerial(a),sb=normalizedSerial(b);
-    return !!(sa&&sb&&sa!==sb);
-  };
+  const normalizedSerial=r=>printerSerialIdentityKey(r);
+  const normalizedMac=r=>printerMacIdentityKey(r);
+  const serialConflict=(a,b)=>printerIdentityConflict(a,b);
   const addIdentityGroup=indexes=>{
     indexes.forEach(j=>used.add(j));
     groups.push(indexes);
@@ -3238,7 +3259,7 @@ function dedupePrinterRows(source){
     if(!serial)continue;
     const indexes=[];
     for(let j=i;j<input.length;j++){
-      if(used.has(j)||normalizedSerial(input[j])!==serial)continue;
+      if(used.has(j)||normalizedSerial(input[j])!==serial||indexes.some(k=>serialConflict(input[k],input[j])))continue;
       indexes.push(j);
     }
     if(indexes.length>1&&!rowsContainDifferentUsbInstances(indexes.map(j=>input[j]))){
@@ -3308,25 +3329,12 @@ function dedupePrinterRows(source){
     }
   }
 
-  // Alias WSD/red sin IP: conservar la relación de familia, pero no mezclar
-  // seriales incompatibles.
+  // WSD/IPP sin serie o MAC coincidente se conserva como registro separado.
+  // Nunca unir impresoras solo porque comparten marca y modelo.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
-    const r=input[i];
-    let target=-1;
-    if(!realIpOf(r)){
-      target=groups.findIndex(indexes=>{
-        const canonical=mergePrinterRecords(indexes.map(k=>input[k]));
-        return !!realIpOf(canonical) && !serialConflict(canonical,r) && sameNetworkFamily(canonical,r);
-      });
-    }
-    if(target>=0){
-      groups[target].push(i);
-      used.add(i);
-    }else{
-      groups.push([i]);
-      used.add(i);
-    }
+    groups.push([i]);
+    used.add(i);
   }
 
   return groups.map(indexes=>mergePrinterRecords(indexes.map(i=>input[i])));
@@ -3494,6 +3502,18 @@ function connectionLabel(r){
   if(/\b(?:ETHERNET|NETWORK|LAN|WI[ -]?FI|WIRELESS|TCP\s*\/?\s*IP)\b/i.test(text))return 'NET';
   return 'Sin identificar';
 }
+function stripPrinterDriverSuffix(value){
+  let out=String(value??'').replace(/\s+/g,' ').trim();
+  const driver="(?:PCL(?:[\\s-]*(?:MS|M|XL|[1-9]\\d*[A-Z]?))?|POSTSCRIPT(?:\\s+CLASS\\s+DRIVER)?|PS(?:[\\s-]*\\d+)?(?:\\s+CLASS\\s+DRIVER)?|UFR\\s*II|BR[\\s-]?SCRIPT|KX(?:\\s+DRIVER)?|XPS(?:\\s+CLASS\\s+DRIVER)?|IPP(?:\\s+CLASS\\s+DRIVER)?|CLASS\\s+DRIVER|UNIVERSAL\\s+PRINT(?:ING)?(?:\\s+DRIVER)?)";
+  const tail=new RegExp("\\s+(?:series\\s*)?[\\\"']?\\s*(?:\\(\\s*)?"+driver+"(?:\\s+(?:\\d{1,6}|V\\d+(?:\\.\\d+)*))?(?:\\s*\\(V\\d+(?:\\.\\d+)*\\))?\\s*\\)?[\\\"']?\\s*$","i");
+  for(let i=0;i<4;i++){
+    const previous=out;
+    out=out.replace(tail,'').replace(/[\\s,;]+$/,'').trim();
+    if(out===previous)break;
+  }
+  return out;
+}
+
 function printerInventoryLabel(r){
   let name=printerModelRaw(r)||'Ver ficha';
   const explicit=name.match(/(?:^|[;,])\s*(?:MDL|PID|MODEL|PRODUCT(?:\s+NAME)?)\s*[:=]\s*([^;,\r\n]+)/i);
@@ -3511,6 +3531,7 @@ function printerInventoryLabel(r){
     .replace(/\s*\(\s*V\d+(?:\.\d+)*\s*\)\s*$/i,'')
     .replace(/\s*[([]\s*(?:copy|copiar|copia)\s*\d+\s*[)\]]\s*$/i,'')
     .replace(/[\s,;]+$/,'').trim();
+  name=stripPrinterDriverSuffix(name);
   return name||'Ver ficha';
 }
 function printerIpPort(r){
@@ -3673,7 +3694,7 @@ const DUP_TAIL_PATTERNS=[
   /\s+(?:[-–—]\s*)?usb[-_\s]*\d+$/i
 ];
 function stripDuplicateNameTail(name){
-  let out=String(name??'').trim();
+  let out=stripPrinterDriverSuffix(name);
   for(let i=0;i<5;i++){
     const prev=out;
     for(const re of DUP_TAIL_PATTERNS)out=out.replace(re,'').trim();
@@ -3718,11 +3739,10 @@ function printerSerialValue(r){
   return '';
 }
 function printerNormalizedSerial(r){
-  return printerSerialValue(r).toLowerCase().replace(/[^a-z0-9]/g,'');
+  return printerSerialIdentityKey(r);
 }
 function printerNormalizedMac(r){
-  const mac=String(r?.mac_address||'').trim().toLowerCase().replace(/[^0-9a-f]/g,'');
-  return mac.length===12?mac:'';
+  return printerMacIdentityKey(r);
 }
 function duplicateNameLabel(r){
   return printerRawName(r)||String(r?.model||'').trim()||String(r?.printer_id||'').trim();
@@ -4073,7 +4093,7 @@ function renderRetiredFleet(){
     return '<tr>'
       +'<td class="retired-admin-col">'+escapeHtml(companyName)+'</td>'
       +'<td>'+escapeHtml(p?.name||'—')+'</td>'
-      +'<td><strong>'+escapeHtml(r.display_name||'Impresora')+'</strong>'+(r.description?'<div class="muted" style="font-size:11px">'+escapeHtml(r.description)+'</div>':'')+'</td>'
+      +'<td><strong>'+escapeHtml(printerInventoryLabel(r)||'Impresora')+'</strong>'+(r.description?'<div class="muted" style="font-size:11px">'+escapeHtml(r.description)+'</div>':'')+'</td>'
       +'<td>'+escapeHtml(model)+'</td>'
       +'<td>'+escapeHtml(connection)+'</td>'
       +'<td>'+escapeHtml(r.serial_number||'—')+'</td>'
@@ -4135,7 +4155,7 @@ function exportRetiredFleetExcel(){
     const c=p?companyById.get(String(p.company_id)):null;
     const row={
       'Proyecto de origen':p?.name||'',
-      Impresora:r.display_name||'',
+      Impresora:printerInventoryLabel(r)||'',
       Fabricante:printerManufacturerValue(r),
       Modelo:printerInventoryLabel(r),
       Descripción:r.description||'',
