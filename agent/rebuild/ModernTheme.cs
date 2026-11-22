@@ -177,7 +177,7 @@ internal static class ModernTheme
         }
         else if (control is DataGridView grid)
         {
-            grid.BackgroundColor = Panel;
+            grid.BackgroundColor = SurfaceColor;
             grid.BorderStyle = BorderStyle.None;
             grid.EnableHeadersVisualStyles = false;
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
@@ -186,7 +186,7 @@ internal static class ModernTheme
             grid.ColumnHeadersDefaultCellStyle.ForeColor = Accent;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 8F, FontStyle.Bold);
             grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Card;
-            grid.DefaultCellStyle.BackColor = Panel;
+            grid.DefaultCellStyle.BackColor = SurfaceColor;
             grid.DefaultCellStyle.ForeColor = Text;
             grid.DefaultCellStyle.SelectionBackColor = Selection;
             grid.DefaultCellStyle.SelectionForeColor = Color.White;
@@ -266,7 +266,7 @@ internal static class ModernTheme
 
     private static Color Background => _lightMode ? Color.FromArgb(241, 247, 251) : Color.FromArgb(7, 16, 28);
     private static Color Header => _lightMode ? Color.FromArgb(241, 248, 252) : Color.FromArgb(10, 23, 38);
-    private static Color Panel => _lightMode ? Color.White : Color.FromArgb(13, 27, 42);
+    private static Color SurfaceColor => _lightMode ? Color.White : Color.FromArgb(13, 27, 42);
     private static Color Card => _lightMode ? Color.FromArgb(229, 239, 247) : Color.FromArgb(17, 38, 56);
     private static Color Input => _lightMode ? Color.White : Color.FromArgb(9, 23, 37);
     private static Color Accent => _lightMode ? Color.FromArgb(17, 105, 145) : Color.FromArgb(76, 216, 255);
