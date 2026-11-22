@@ -145,6 +145,13 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
+          $wxs = Join-Path $env:AGENT_ROOT "InstallerMsi/Package.wxs"
+          $source = [IO.File]::ReadAllText($wxs)
+          $machineKey = 'RegistryValue Root="HKLM" Key="Software\A&amp;T Informatica\A&amp;T Printix Agent"'
+          if (-not $source.Contains($machineKey)) { throw "MSI shortcut registry key not found in Package.wxs." }
+          $source = $source.Replace($machineKey, 'RegistryValue Root="HKCU" Key="Software\A&amp;T Informatica\A&amp;T Printix Agent"')
+          [IO.File]::WriteAllText($wxs, $source, [Text.UTF8Encoding]::new($false))
+          Write-Host "MSI shortcut KeyPath changed to HKCU to match the per-user Start Menu component."
           $project = Join-Path $env:AGENT_ROOT "InstallerMsi/ATPrintixAgentMsi.wixproj"
           dotnet build $project -c Release --nologo
           if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed with exit code $LASTEXITCODE" }
