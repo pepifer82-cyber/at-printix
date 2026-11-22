@@ -142,7 +142,7 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 table{width:100%;border-collapse:collapse;min-width:1120px}th,td{text-align:left;padding:14px 16px;border-bottom:1px solid #e9eef5;font-size:13px;vertical-align:top}td:nth-child(1){min-width:180px}td:nth-child(2){min-width:210px}td:nth-child(3){min-width:150px}th{white-space:nowrap}th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#62758c;background:#eef3f8;position:sticky;top:0}tr:last-child td{border-bottom:0}tr.cross-project-dup>td{background:#fffbeb;color:#5f3305}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2f7;color:#52647a}.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:#94a3b8}.pill.online{background:#e9fbf4;color:#16815e}.pill.online:before{background:#20ad7a}.pill.offline{background:#fff0f1;color:#be4b5b}.pill.offline:before{background:#e45867}.pill.stale{background:#fff7e7;color:#a36b11}.pill.stale:before{background:#f2a51d}.pill.unknown{background:#eef2f7;color:#52647a}.pill.unknown:before{background:#94a3b8}
 .empty{padding:42px 15px;text-align:center;color:var(--muted)}
 .icon-btn{padding:7px 9px;border-radius:8px;background:#edf4ff;color:#1d63d4;font-weight:800;border:1px solid #d8e7fb;white-space:nowrap}
-.icon-btn:hover{background:#e3efff}.inline-edit{width:100%;min-width:120px;padding:7px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;outline:none}.serial-edit{min-width:160px}.inline-edit:hover{border-color:#cfdbe8;background:#f8fbff}.inline-edit:focus{border-color:#7eb1ff;background:#fff;box-shadow:0 0 0 3px #2878ff10}
+.icon-btn:hover{background:#e3efff}.inline-edit{width:100%;min-width:120px;padding:7px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;outline:none}.serial-edit{min-width:160px}.inventory-manual-edit{min-width:135px;max-width:260px}.inventory-date-edit{min-width:135px}.inventory-map-cell{display:flex;align-items:center;gap:5px;min-width:210px}.inventory-map-cell .inventory-manual-edit{min-width:165px}.inline-edit:hover{border-color:#cfdbe8;background:#f8fbff}.inline-edit:focus{border-color:#7eb1ff;background:#fff;box-shadow:0 0 0 3px #2878ff10}
 .summary-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}.insight{border:1px solid var(--line);border-radius:15px;padding:15px;background:#f8fbff}.insight strong{display:block;font-size:18px}.insight span{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 .modal-back{position:fixed;inset:0;background:#0d1b2e85;display:flex;align-items:center;justify-content:center;padding:18px;z-index:20;backdrop-filter:blur(7px)}
 .modal{width:min(520px,100%);background:#fff;border-radius:22px;padding:22px;box-shadow:0 30px 80px #0d1b2e33}.modal h2{margin:0 0 5px}.modal p{color:var(--muted);margin:0 0 18px}.modal label{font-size:12px;font-weight:800;color:#52647a}.modal input{width:100%;margin-top:7px;padding:12px 13px;border:1px solid #cdd9e7;border-radius:12px;outline:none}.modal input:focus{border-color:#7eb1ff;box-shadow:0 0 0 4px #2878ff12}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.primary{background:linear-gradient(135deg,var(--blue),#3798ff);color:#fff;padding:11px 14px;border-radius:11px;font-weight:800}.secondary{background:#edf2f7;color:#26394e;padding:11px 14px;border-radius:11px;font-weight:800}
@@ -2743,7 +2743,8 @@ async function saveManualPrinterCounter(event){
 function canEditPrinterDescription(){
   const companyRole=String(accountEntitlements?.role||'').toLowerCase();
   const projectRole=String(currentProjectMemberRoleId)===String(currentProjectId)?currentProjectMemberRole:'';
-  return !!isAdmin||['owner','admin'].includes(companyRole)||['owner','admin'].includes(projectRole);
+  // Cualquier miembro activo con acceso al proyecto puede editar los datos manuales.
+  return !!isAdmin||!!companyRole||!!projectRole;
 }
 function openPrinterEditor(id){
   if(!canEditPrinterDescription()){atNotify('Solo el administrador o un usuario autorizado puede modificar los datos manuales de la impresora.','error');return}
@@ -2850,6 +2851,51 @@ async function savePrinterInline(el){
   }
 }
 
+
+async function saveInventoryMetadataInline(el){
+  if(!el||el.dataset.saving==='1')return;
+  if(!canEditPrinterDescription()){
+    atNotify('Debes tener acceso al proyecto para modificar los datos del inventario.','error');
+    return;
+  }
+  const id=String(el.dataset.printerId||'');
+  const field=String(el.dataset.inventoryField||'');
+  const allowed=new Set(['reference','country','province','postalCode','address','map_url','floor','department','contact','phone','mobile','email','pending','installation','extra1','extra2','extra3','extra4','extra5']);
+  if(!id||!allowed.has(field))return;
+  const r=rows.find(x=>String(x.printer_id)===id);
+  if(!r)return;
+  const clean=String(el.value??'').trim();
+  const previous=String((r.inventory_metadata&&r.inventory_metadata[field])??'');
+  if(clean===previous)return;
+  el.dataset.saving='1';
+  el.disabled=true;
+  try{
+    const result=await api('/rest/v1/rpc/control_update_printer_inventory_metadata',{
+      method:'POST',
+      headers:{'Prefer':'return=representation'},
+      body:JSON.stringify({p_printer_id:id,p_metadata:{[field]:clean}})
+    });
+    const updated=Array.isArray(result)?result[0]:result;
+    if(!updated?.id)throw new Error('Supabase no confirmó el guardado.');
+    const merged=updated.inventory_metadata&&typeof updated.inventory_metadata==='object'
+      ?updated.inventory_metadata:{...(r.inventory_metadata||{}),[field]:clean};
+    [...rows,...retiredFleetRows].forEach(x=>{
+      if(String(x.printer_id)===id){
+        x.inventory_metadata=merged;
+        x.updated_at=updated.updated_at||x.updated_at;
+      }
+    });
+    el.value=String(merged[field]??'');
+    if(currentView==='inventario')renderAll();
+    atNotify('Campo «'+field+'» guardado.','success',1800);
+  }catch(e){
+    el.value=previous;
+    atNotify('No se pudo guardar el campo: '+(e?.message||e),'error',7000);
+  }finally{
+    el.disabled=false;
+    delete el.dataset.saving;
+  }
+}
 
 async function setRetired(id,retired){
   const r=rows.find(x=>String(x.printer_id)===String(id))||retiredFleetRows.find(x=>String(x.printer_id)===String(id));if(!r)return;
@@ -4122,6 +4168,20 @@ function exportRetiredFleetExcel(){
 }
 
 
+function inventoryMetadataValue(r,key,aliases=[]){
+  const metadata=r?.inventory_metadata&&typeof r.inventory_metadata==='object'?r.inventory_metadata:{};
+  const stored=metadata[key];
+  if(stored!==null&&stored!==undefined&&String(stored).trim()!=='')return stored;
+  return inventoryFirstValue(r,aliases.length?aliases:[key]);
+}
+function inventoryMetadataRaw(r,key,aliases=[]){
+  const metadata=r?.inventory_metadata&&typeof r.inventory_metadata==='object'?r.inventory_metadata:{};
+  if(Object.prototype.hasOwnProperty.call(metadata,key)){
+    const value=metadata[key];
+    return value===null||value===undefined?'':String(value);
+  }
+  return String(inventoryFirstValue(r,aliases.length?aliases:[key])??'');
+}
 function inventoryFirstValue(r,names){
   for(const name of names){
     const value=r?.[name];
@@ -4136,13 +4196,18 @@ function inventoryFormatValue(value){
 }
 function inventoryLocationText(r){
   return [
-    inventoryFirstValue(r,['address','street_address','installation_address']),
-    inventoryFirstValue(r,['city','locality']),
-    inventoryFirstValue(r,['province','state','region']),
-    inventoryFirstValue(r,['country','country_name'])
+    inventoryMetadataValue(r,'address',['address','street_address','installation_address']),
+    r?.city||'',
+    inventoryMetadataValue(r,'province',['province','state','region']),
+    inventoryMetadataValue(r,'country',['country','country_name','nation'])
   ].filter(Boolean).join(', ');
 }
 function inventoryMapUrl(r){
+  const manual=String(inventoryMetadataRaw(r,'map_url',['map_url'])||'').trim();
+  if(manual){
+    if(/^https?:\/\//i.test(manual))return manual;
+    return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(manual);
+  }
   const lat=inventoryFirstValue(r,['latitude','lat','geo_lat']);
   const lng=inventoryFirstValue(r,['longitude','lng','lon','geo_lng']);
   let query='';
@@ -4156,39 +4221,40 @@ const INVENTORY_COLUMN_DEFS=[
   {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
   {id:'description',label:'Descripción',value:r=>String(r.description||'').trim()||'—'},
   {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
-  {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
-  {id:'country',label:'País',value:r=>inventoryFirstValue(r,['country','country_name','nation'])||'—'},
-  {id:'province',label:'Provincia',value:r=>inventoryFirstValue(r,['province','state','region'])||'—'},
-  {id:'postalCode',label:'Código Postal',value:r=>inventoryFirstValue(r,['postal_code','postalCode','zip_code','zipcode','zip'])||'—'},
-  {id:'city',label:'Ciudad',value:r=>inventoryFirstValue(r,['city','locality'])||'—'},
-  {id:'address',label:'Dirección',value:r=>inventoryFirstValue(r,['address','street_address','installation_address'])||'—'},
+  {id:'reference',label:'Referencia',value:r=>inventoryMetadataValue(r,'reference',['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
+  {id:'country',label:'País',value:r=>inventoryMetadataValue(r,'country',['country','country_name','nation'])||'—'},
+  {id:'province',label:'Provincia',value:r=>inventoryMetadataValue(r,'province',['province','state','region'])||'—'},
+  {id:'postalCode',label:'Código Postal',value:r=>inventoryMetadataValue(r,'postalCode',['postal_code','postalCode','zip_code','zipcode','zip'])||'—'},
+  {id:'city',label:'Ciudad',value:r=>String(r.city||'').trim()||'—'},
+  {id:'address',label:'Dirección',value:r=>inventoryMetadataValue(r,'address',['address','street_address','installation_address'])||'—'},
   {id:'map',label:'Mapa',value:r=>inventoryMapUrl(r)},
-  {id:'floor',label:'Planta',value:r=>inventoryFirstValue(r,['floor','plant','building_floor'])||'—'},
-  {id:'department',label:'Departamento',value:r=>inventoryFirstValue(r,['department','area','division'])||'—'},
-  {id:'contact',label:'Contacto',value:r=>inventoryFirstValue(r,['contact','contact_name','contact_person','responsible_name'])||inventoryFirstValue(accountEntitlements,['contact_name','company_contact'])||'—'},
-  {id:'phone',label:'Teléfono',value:r=>inventoryFirstValue(r,['phone','telephone','contact_phone'])||accountEntitlements?.company_phone||'—'},
-  {id:'mobile',label:'Móvil',value:r=>inventoryFirstValue(r,['mobile','mobile_phone','cell_phone','whatsapp'])||'—'},
-  {id:'email',label:'Correo',value:r=>inventoryFirstValue(r,['email','contact_email','email_address'])||accountEntitlements?.company_email||'—'},
+  {id:'floor',label:'Planta',value:r=>inventoryMetadataValue(r,'floor',['floor','plant','building_floor'])||'—'},
+  {id:'department',label:'Departamento',value:r=>inventoryMetadataValue(r,'department',['department','area','division'])||'—'},
+  {id:'contact',label:'Contacto',value:r=>inventoryMetadataValue(r,'contact',['contact','contact_name','contact_person','responsible_name'])||'—'},
+  {id:'phone',label:'Teléfono',value:r=>inventoryMetadataValue(r,'phone',['phone','telephone','contact_phone'])||'—'},
+  {id:'mobile',label:'Móvil',value:r=>inventoryMetadataValue(r,'mobile',['mobile','mobile_phone','cell_phone','whatsapp'])||'—'},
+  {id:'email',label:'Correo',value:r=>inventoryMetadataValue(r,'email',['email','contact_email','email_address'])||'—'},
   {id:'ip',label:'Dirección IP',value:r=>realIpOf(r)||printerIpValue(r)||'—'},
   {id:'hostname',label:'Hostname',value:r=>inventoryFirstValue(r,['hostname','host_name','computer_name','machine_name'])||agentRows.find(a=>String(a.id)===String(r.agent_id))?.machine_name||r.agent_code||'—'},
   {id:'class',label:'Clase',value:r=>inventoryFirstValue(r,['device_class','printer_class','class','device_type','category'])||connectionLabel(r)||'—'},
   {id:'lastUpdate',label:'Última actualización',value:r=>lastContact(r.reading_at||r.updated_at||r.last_seen_at)},
-  {id:'pending',label:'Pendiente',value:r=>inventoryFormatValue(inventoryFirstValue(r,['pending','is_pending','pending_status','pending_reason']))},
-  {id:'installation',label:'Instalación',value:r=>inventoryFirstValue(r,['installation','installation_date','installed_at','install_date','date_installed'])||'—'},
-  {id:'extra1',label:'Extra 1',value:r=>inventoryFirstValue(r,['extra_1','extra1','custom_field_1','custom1','additional_field_1'])||'—'},
-  {id:'extra2',label:'Extra 2',value:r=>inventoryFirstValue(r,['extra_2','extra2','custom_field_2','custom2','additional_field_2'])||'—'},
-  {id:'extra3',label:'Extra 3',value:r=>inventoryFirstValue(r,['extra_3','extra3','custom_field_3','custom3','additional_field_3'])||'—'},
-  {id:'extra4',label:'Extra 4',value:r=>inventoryFirstValue(r,['extra_4','extra4','custom_field_4','custom4','additional_field_4'])||'—'},
-  {id:'extra5',label:'Extra 5',value:r=>inventoryFirstValue(r,['extra_5','extra5','custom_field_5','custom5','additional_field_5'])||'—'},
+  {id:'pending',label:'Pendiente',value:r=>inventoryFormatValue(inventoryMetadataValue(r,'pending',['pending','is_pending','pending_status','pending_reason']))},
+  {id:'installation',label:'Instalación',value:r=>inventoryMetadataValue(r,'installation',['installation','installation_date','installed_at','install_date','date_installed'])||'—'},
+  {id:'extra1',label:'Extra 1',value:r=>inventoryMetadataValue(r,'extra1',['extra_1','extra1','custom_field_1','custom1','additional_field_1'])||'—'},
+  {id:'extra2',label:'Extra 2',value:r=>inventoryMetadataValue(r,'extra2',['extra_2','extra2','custom_field_2','custom2','additional_field_2'])||'—'},
+  {id:'extra3',label:'Extra 3',value:r=>inventoryMetadataValue(r,'extra3',['extra_3','extra3','custom_field_3','custom3','additional_field_3'])||'—'},
+  {id:'extra4',label:'Extra 4',value:r=>inventoryMetadataValue(r,'extra4',['extra_4','extra4','custom_field_4','custom4','additional_field_4'])||'—'},
+  {id:'extra5',label:'Extra 5',value:r=>inventoryMetadataValue(r,'extra5',['extra_5','extra5','custom_field_5','custom5','additional_field_5'])||'—'},
   {id:'retire',label:'Retirar',value:()=>''}
 ];
-const INVENTORY_DEFAULT_COLUMNS=['project','manufacturer','model','description','city','address','ip','serial','lastUpdate','hostname','class','retire'];
+const INVENTORY_REQUIRED_MANUAL_COLUMNS=['description','serial','reference','country','province','postalCode','city','address','map','floor','department','contact','phone','mobile','email','pending','installation','extra1','extra2','extra3','extra4','extra5'];
+const INVENTORY_DEFAULT_COLUMNS=['project','manufacturer','model',...INVENTORY_REQUIRED_MANUAL_COLUMNS,'ip','lastUpdate','hostname','class','retire'];
 let inventoryVisibleColumns=new Set(INVENTORY_DEFAULT_COLUMNS);
 try{
   const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns-v2')||'null');
   if(Array.isArray(saved))inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
   // La descripción debe quedar visible también en navegadores que ya guardaron preferencias anteriores.
-  inventoryVisibleColumns.add('description');
+  INVENTORY_REQUIRED_MANUAL_COLUMNS.forEach(id=>inventoryVisibleColumns.add(id));
 }catch{}
 function renderInventoryColumnPicker(){
   const panel=$('inventoryColumnOptions');
@@ -4208,6 +4274,34 @@ function setInventoryColumnVisible(id,visible){
   renderAll();
   syncInventoryColumnChecks();
 }
+const INVENTORY_METADATA_EDITORS={
+  reference:{key:'reference',aliases:['reference','asset_reference','asset_tag','inventory_number','reference_code']},
+  country:{key:'country',aliases:['country','country_name','nation']},
+  province:{key:'province',aliases:['province','state','region']},
+  postalCode:{key:'postalCode',aliases:['postal_code','postalCode','zip_code','zipcode','zip']},
+  address:{key:'address',aliases:['address','street_address','installation_address']},
+  map:{key:'map_url',aliases:['map_url']},
+  floor:{key:'floor',aliases:['floor','plant','building_floor']},
+  department:{key:'department',aliases:['department','area','division']},
+  contact:{key:'contact',aliases:['contact','contact_name','contact_person','responsible_name']},
+  phone:{key:'phone',aliases:['phone','telephone','contact_phone']},
+  mobile:{key:'mobile',aliases:['mobile','mobile_phone','cell_phone','whatsapp']},
+  email:{key:'email',aliases:['email','contact_email','email_address']},
+  pending:{key:'pending',aliases:['pending','is_pending','pending_status','pending_reason']},
+  installation:{key:'installation',aliases:['installation','installation_date','installed_at','install_date','date_installed'],type:'date'},
+  extra1:{key:'extra1',aliases:['extra_1','extra1','custom_field_1','custom1','additional_field_1']},
+  extra2:{key:'extra2',aliases:['extra_2','extra2','custom_field_2','custom2','additional_field_2']},
+  extra3:{key:'extra3',aliases:['extra_3','extra3','custom_field_3','custom3','additional_field_3']},
+  extra4:{key:'extra4',aliases:['extra_4','extra4','custom_field_4','custom4','additional_field_4']},
+  extra5:{key:'extra5',aliases:['extra_5','extra5','custom_field_5','custom5','additional_field_5']}
+};
+function inventoryMetadataInput(r,config){
+  let value=inventoryMetadataRaw(r,config.key,config.aliases);
+  if(config.type==='date'&&value)value=String(value).slice(0,10);
+  const type=config.type||'text';
+  const cls='inline-edit inventory-manual-edit'+(type==='date'?' inventory-date-edit':'');
+  return '<input class="'+cls+'" type="'+type+'" maxlength="500" placeholder="'+escapeHtml(config.placeholder||'Completar…')+'" title="Dato manual. Se guarda automáticamente al salir del campo." aria-label="'+escapeHtml(config.label||config.key)+'" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-inventory-field="'+escapeHtml(config.key)+'" onblur="saveInventoryMetadataInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}">';
+}
 function renderInventoryTable(visibleInventory,activeRows){
   const table=$('inventoryResizableTable');
   const head=table?.tHead?.rows?.[0];
@@ -4221,9 +4315,31 @@ function renderInventoryTable(visibleInventory,activeRows){
       if(col.id==='description'){
         const value=String(r.description??'');
         if(canEditPrinterDescription()){
-          return '<td class="inventory-description-cell"><input class="inline-edit description-edit" type="text" maxlength="240" placeholder="Agregar descripción…" title="Descripción manual. Se guarda automáticamente al salir del campo." aria-label="Descripción manual de la impresora" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
+          return '<td class="inventory-description-cell"><input class="inline-edit description-edit inventory-manual-edit" type="text" maxlength="240" placeholder="Agregar descripción…" title="Descripción manual. Se guarda automáticamente al salir del campo." aria-label="Descripción manual de la impresora" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
         }
         return '<td>'+escapeHtml(value||'—')+'</td>';
+      }
+      if(col.id==='serial'){
+        const value=printerSerialValue(r);
+        if(canEditPrinterDescription())return '<td><input class="inline-edit serial-edit inventory-manual-edit" type="text" maxlength="160" placeholder="Serie de fábrica…" title="Número de serie físico. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
+        return '<td>'+escapeHtml(value||'—')+'</td>';
+      }
+      if(col.id==='city'){
+        const value=String(r.city??'');
+        if(canEditPrinterDescription())return '<td><input class="inline-edit inventory-manual-edit" type="text" maxlength="120" placeholder="Ciudad…" title="Ciudad manual. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="city" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
+        return '<td>'+escapeHtml(value||'—')+'</td>';
+      }
+      if(INVENTORY_METADATA_EDITORS[col.id]){
+        const config={...INVENTORY_METADATA_EDITORS[col.id],label:col.label};
+        if(canEditPrinterDescription()){
+          const input=inventoryMetadataInput(r,config);
+          if(col.id==='map'){
+            const url=col.value(r);
+            return '<td class="inventory-map-cell">'+input+(url?'<a class="map-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir</a>':'')+'</td>';
+          }
+          return '<td>'+input+'</td>';
+        }
+        return '<td>'+escapeHtml(inventoryFormatValue(col.value(r,activeRows)))+'</td>';
       }
       if(col.id==='model'){
         return '<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="Abrir ficha completa">'+escapeHtml(col.value(r))+'</button></td>';
