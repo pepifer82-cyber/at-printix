@@ -2947,6 +2947,49 @@ function printerTransportKind(r){
   return 'other';
 }
 
+function printerUsbInstanceDescriptor(r){
+  if(printerTransportKind(r)!=='usb')return null;
+  const fields=[
+    'usb_device_instance_id','device_instance_id','pnp_device_id',
+    'device_instance_path','usb_device_path','usb_path','device_path'
+  ];
+  for(const field of fields){
+    const value=String(r?.[field]||'').trim();
+    if(value)return {kind:field,value:value.toLowerCase().replace(/\\/g,'/')};
+  }
+  for(const field of ['usb_port','windows_port','port_name']){
+    const value=String(r?.[field]||'').trim();
+    if(/^USB\d{1,5}$/i.test(value))return {kind:'usb-port',value:value.toUpperCase()};
+    if(/^(?:USBPRINT|USB\\|\\\\\?\\USB)/i.test(value))return {kind:'usb-path',value:value.toLowerCase().replace(/\\/g,'/')};
+  }
+  return null;
+}
+function printerUsbOwner(r){
+  return String(r?.agent_code||r?.agent_id||r?.machine_name||'').trim().toLowerCase();
+}
+function printerUsbInstancesConflict(a,b){
+  if(printerTransportKind(a)!=='usb'||printerTransportKind(b)!=='usb')return false;
+  const da=printerUsbInstanceDescriptor(a),db=printerUsbInstanceDescriptor(b);
+  if(!da||!db||da.kind!==db.kind||da.value===db.value)return false;
+  const aa=printerUsbOwner(a),bb=printerUsbOwner(b);
+  if(aa&&bb&&aa!==bb)return false;
+  return true;
+}
+function rowsContainDifferentUsbInstances(records){
+  const list=Array.isArray(records)?records:[];
+  for(let i=0;i<list.length;i++){
+    for(let j=i+1;j<list.length;j++){
+      if(printerUsbInstancesConflict(list[i],list[j]))return true;
+    }
+  }
+  return false;
+}
+function printerUsbCounterGroupKey(r){
+  const endpoint=printerUsbInstanceDescriptor(r);
+  if(!endpoint)return 'usb-record:'+String(r?.printer_id||r?.id||'unknown');
+  return 'usb:'+printerUsbOwner(r)+'|'+endpoint.kind+'|'+endpoint.value;
+}
+
 function samePhysicalTransportAlias(a,b){
   const ka=printerTransportKind(a),kb=printerTransportKind(b);
   const cross=(ka==='usb'&&(kb==='ip'||kb==='queue'))||(kb==='usb'&&(ka==='ip'||ka==='queue'))||
@@ -2961,7 +3004,15 @@ function samePhysicalTransportAlias(a,b){
   if(brandA!==brandB||!modelsA.some(model=>modelsB.includes(model)))return false;
   const sa=String(a?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   const sb=String(b?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
-  return !(sa&&sb&&sa!==sb);
+  const macA=String(a?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
+  const macB=String(b?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
+  if(sa&&sb&&sa!==sb)return false;
+  if(ka==='usb'||kb==='usb'){
+    const sameSerial=!!sa&&sa===sb;
+    const sameMac=macA.length===12&&macA===macB;
+    if(!sameSerial&&!sameMac)return false;
+  }
+  return true;
 }
 
 // Línea de producto (LaserJet vs OfficeJet, etc.): separa tecnologías de la
@@ -3011,9 +3062,13 @@ function dedupePrinterRows(source){
     const sa=normalizedSerial(a),sb=normalizedSerial(b);
     return !!(sa&&sb&&sa!==sb);
   };
+  const addIdentityGroup=indexes=>{
+    indexes.forEach(j=>used.add(j));
+    groups.push(indexes);
+  };
 
-  // Primero consolidar por número de serie físico: la IP puede cambiar
-  // o una impresora puede haber sido descubierta en dos direcciones distintas.
+  // Una serie repetida puede proceder de dos impresoras USB diferentes.
+  // Si el mismo agente informa instancias/puertos USB distintos, no fusionar.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     const serial=normalizedSerial(input[i]);
@@ -3023,14 +3078,12 @@ function dedupePrinterRows(source){
       if(used.has(j)||normalizedSerial(input[j])!==serial)continue;
       indexes.push(j);
     }
-    if(indexes.length>1){
-      indexes.forEach(j=>used.add(j));
-      groups.push(indexes);
+    if(indexes.length>1&&!rowsContainDifferentUsbInstances(indexes.map(j=>input[j]))){
+      addIdentityGroup(indexes);
     }
   }
 
-  // La MAC identifica el hardware aunque cambie de IP o de agente.
-  // Solo se fusiona si no hay números de serie físicos incompatibles.
+  // La MAC identifica hardware, salvo que existan instancias USB distintas.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     const mac=normalizedMac(input[i]);
@@ -3041,11 +3094,12 @@ function dedupePrinterRows(source){
       if(indexes.some(k=>serialConflict(input[k],input[j])))continue;
       indexes.push(j);
     }
-    if(indexes.length>1){indexes.forEach(j=>used.add(j));groups.push(indexes);}
+    if(indexes.length>1&&!rowsContainDifferentUsbInstances(indexes.map(j=>input[j]))){
+      addIdentityGroup(indexes);
+    }
   }
 
-  // Después consolidar entradas que comparten una IP real,
-  // sin unir registros que declaren números de serie incompatibles.
+  // Una IP compartida consolida alias de red, no distintas instancias USB.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     const ip=realIpOf(input[i]).toLowerCase();
@@ -3056,13 +3110,13 @@ function dedupePrinterRows(source){
       if(indexes.some(k=>serialConflict(input[k],input[j])))continue;
       indexes.push(j);
     }
-    indexes.forEach(j=>used.add(j));
-    groups.push(indexes);
+    if(indexes.length>1&&!rowsContainDifferentUsbInstances(indexes.map(j=>input[j]))){
+      addIdentityGroup(indexes);
+    }
   }
 
-  // Relacionar USB e IPP/WSD con una única ficha de red cuando hay
-  // una sola impresora física candidata del mismo fabricante/modelo y agente.
-  // Si hay dos equipos iguales, no se fusionan por nombre/modelo solamente.
+  // No fusionar USB y red solo por parecer el mismo modelo. Se requiere
+  // coincidencia física de serie o MAC, además de marca/modelo compatibles.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     const kind=printerTransportKind(input[i]);
@@ -3075,23 +3129,11 @@ function dedupePrinterRows(source){
     if(targets.length===1){
       groups[targets[0]].push(i);
       used.add(i);
-      continue;
-    }
-    // Segunda oportunidad para USB sin serial y sin ficha estrictamente
-    // compatible: si existe UNA sola ficha de red de la misma marca y línea
-    // de producto en el mismo agente, se fusiona (el registro con IP y
-    // contadores queda primero al ordenar por puntaje).
-    if(kind==='usb'&&targets.length===0){
-      const relaxed=[];
-      for(let g=0;g<groups.length;g++){
-        const network=groups[g].map(k=>input[k]).find(r=>!!realIpOf(r));
-        if(network&&sameProductLineAlias(input[i],network))relaxed.push(g);
-      }
-      if(relaxed.length===1){groups[relaxed[0]].push(i);used.add(i);}
     }
   }
 
-  // Los USB sin una única contraparte identificable mantienen su propia ficha.
+  // Cada USB no confirmado se conserva como impresora independiente.
+  // "(Copiar 1)" es solo parte del nombre de cola que Windows asigna.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     if(printerTransportKind(input[i])==='usb'){
@@ -3100,8 +3142,8 @@ function dedupePrinterRows(source){
     }
   }
 
-  // Otros alias WSD/red sin IP: conservar la lógica de familia existente,
-  // pero sin unir registros que tengan seriales físicos incompatibles.
+  // Alias WSD/red sin IP: conservar la relación de familia, pero no mezclar
+  // seriales incompatibles.
   for(let i=0;i<input.length;i++){
     if(used.has(i))continue;
     const r=input[i];
@@ -3506,7 +3548,15 @@ function duplicateNameGroups(){
     const allShareMac=memberMacs.length>0&&memberMacs.every(mac=>!!mac&&mac===memberMacs[0]);
     const reasons=[];
     let level;
-    if(serials.size>1||macs.size>1){
+    const hasSeparateUsbEndpoints=rowsContainDifferentUsbInstances(members.map(m=>m.r));
+    if(hasSeparateUsbEndpoints){
+      level='conflicto';
+      const endpoints=[...new Set(members.map(m=>{
+        const descriptor=printerUsbInstanceDescriptor(m.r);
+        return descriptor?descriptor.value:'';
+      }).filter(Boolean))];
+      reasons.push('se observan conexiones USB distintas ('+endpoints.join(', ')+'): «Copiar 1» identifica una cola de Windows, no confirma que sea la misma impresora física');
+    }else if(serials.size>1||macs.size>1){
       level='conflicto';
       const bits=[];
       if(serials.size>1)bits.push(serials.size+' seriales distintos');
@@ -4376,7 +4426,21 @@ async function loadCounterHistory(showMessage=true){
         reference:history.reference||history.asset_reference||history.asset_tag||device.reference||device.asset_reference||device.asset_tag||'',
         location:history.location||history.city||history.description||history.address||device.location||device.city||device.description||device.address||'',
         ip_address:realIpOf(device)||realIpOf(history)||'',
-        mac_address:history.mac_address||device.mac_address||''
+        mac_address:history.mac_address||device.mac_address||'',
+        connection_type:device.connection_type||history.connection_type||'',
+        usb_port:history.usb_port||device.usb_port||'',
+        windows_port:history.windows_port||device.windows_port||'',
+        port_name:history.port_name||device.port_name||'',
+        device_instance_id:history.device_instance_id||device.device_instance_id||'',
+        usb_device_instance_id:history.usb_device_instance_id||device.usb_device_instance_id||'',
+        pnp_device_id:history.pnp_device_id||device.pnp_device_id||'',
+        device_instance_path:history.device_instance_path||device.device_instance_path||'',
+        usb_device_path:history.usb_device_path||device.usb_device_path||'',
+        usb_path:history.usb_path||device.usb_path||'',
+        device_path:history.device_path||device.device_path||'',
+        agent_code:device.agent_code||history.agent_code||'',
+        agent_id:device.agent_id||history.agent_id||'',
+        machine_name:device.machine_name||history.machine_name||''
       });
     }
     // Una sola fila por equipo físico y día. No se suman lecturas duplicadas:
@@ -4594,8 +4658,12 @@ function aggregateCounterPeriodRows(dailyRows){
   };
   for(const r of ordered){
     const serial=printerSerialValue(r).trim().toLowerCase();
+    const mac=String(r.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
     const ip=String(r.ip_address||'').trim().toLowerCase();
-    const key=serial?'serial:'+serial:(ip?'ip:'+ip:'id:'+String(r.printer_id));
+    const transport=printerTransportKind(r);
+    const key=transport==='usb'
+      ?printerUsbCounterGroupKey(r)
+      :(serial?'serial:'+serial:(mac.length===12?'mac:'+mac:(ip?'ip:'+ip:'id:'+String(r.printer_id))));
     let item=groups.get(key);
     if(!item){
       const cleanModel=printerInventoryLabel(r);
