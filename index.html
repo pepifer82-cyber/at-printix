@@ -110,7 +110,11 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 .counter-menu-choice{display:block;width:100%;border:0;background:transparent;color:var(--text,#203047);text-align:left;border-radius:7px;padding:8px 9px;font-size:12px;cursor:pointer}
 .counter-menu-choice:hover,.counter-menu-choice:focus-visible{background:#2878ff12;outline:none;color:var(--accent,#2878ff)}
 .counter-menu-date-panel{}
-.counter-date-menu-panel{width:245px}
+.counter-date-menu-panel{width:275px}
+.counter-date-range{display:grid;grid-template-columns:1fr;gap:9px;padding:3px}
+.counter-date-range .counter-control{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:800;color:var(--muted,#718096)}
+.counter-date-range .counter-menu-date-input{width:100%;min-width:0!important;height:36px}
+@media(max-width:640px){.counter-date-menu-panel{width:min(275px,calc(100vw - 34px))}}
 .counter-menu-date-label{display:block;font-size:11px;font-weight:800;color:var(--muted,#718096);margin:5px 3px}
 .counter-menu-date-input{width:100%;min-width:0!important;height:36px}
 .counter-date-menu-panel small{display:block;margin:8px 3px 3px;color:var(--muted,#718096);font-size:10px;line-height:1.4}
@@ -1053,7 +1057,7 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
           </details>
           <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
           <details class="column-picker counter-menu" id="counterPeriodMenu">
-            <summary class="toolbar-btn" id="counterPeriodButton">◷ <span id="counterPeriodButtonLabel">Período: Este mes</span></summary>
+            <summary class="toolbar-btn" id="counterPeriodButton">◷ <span id="counterPeriodButtonLabel">Período</span></summary>
             <div class="column-picker-panel counter-menu-panel" id="counterPeriodOptions">
               <div class="picker-title">Seleccionar período</div>
               <button type="button" class="counter-menu-choice" data-counter-period="thisMonth">Este mes</button>
@@ -1064,19 +1068,27 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
               <button type="button" class="counter-menu-choice" data-counter-period="last90">Últimos 90 días</button>
               <button type="button" class="counter-menu-choice" data-counter-period="lastMonth">Mes anterior</button>
               <button type="button" class="counter-menu-choice" data-counter-period="thisYear">Este año</button>
-              <button type="button" class="counter-menu-choice" data-counter-period="custom">Rango personalizado…</button>
             </div>
           </details>
           <details class="column-picker counter-menu" id="counterDateMenu">
-            <summary class="toolbar-btn" id="counterDateButton">▦ <span id="counterDateButtonLabel">Fecha</span></summary>
+            <summary class="toolbar-btn" id="counterDateButton">▦ <span id="counterDateButtonLabel">Fechas</span></summary>
             <div class="column-picker-panel counter-menu-panel counter-date-menu-panel">
-              <div class="picker-title">Seleccionar fecha</div>
-              <label class="counter-menu-date-label" for="counterDateSelect">Día del reporte</label>
-              <input id="counterDateSelect" class="toolbar-input counter-menu-date-input" type="date">
-              <small>Al elegir una fecha, el reporte mostrará solamente ese día.</small>
+              <div class="picker-title">Seleccionar fechas</div>
+              <div class="counter-date-range">
+                <label class="counter-control" for="counterFrom">
+                  <span>Desde</span>
+                  <input id="counterFrom" class="toolbar-input counter-menu-date-input" type="date">
+                </label>
+                <label class="counter-control" for="counterTo">
+                  <span>Hasta</span>
+                  <input id="counterTo" class="toolbar-input counter-menu-date-input" type="date">
+                </label>
+              </div>
+              <small>Elegí las dos fechas y pulsá Consultar para ver el rango.</small>
             </div>
           </details>
           <select id="counterPeriodSelect" class="counter-hidden-period" aria-hidden="true" tabindex="-1">
+            <option value="">Sin seleccionar</option>
             <option value="thisMonth">Este mes</option>
             <option value="today">Hoy</option>
             <option value="yesterday">Ayer</option>
@@ -1085,24 +1097,12 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
             <option value="last90">Últimos 90 días</option>
             <option value="lastMonth">Mes anterior</option>
             <option value="thisYear">Este año</option>
-            <option value="specific">Fecha específica</option>
-            <option value="custom">Rango personalizado</option>
           </select>
-          <div id="counterCustomRange" class="counter-custom-range hidden">
-            <label class="counter-control">
-              <span>Desde</span>
-              <input id="counterFrom" class="toolbar-input" type="date">
-            </label>
-            <label class="counter-control">
-              <span>Hasta</span>
-              <input id="counterTo" class="toolbar-input" type="date">
-            </label>
-          </div>
           <button id="counterQueryBtn" class="toolbar-btn" type="button">Consultar</button>
         </div>
         <input id="counterSearch" class="toolbar-input counter-search" type="search" placeholder="Buscar impresora, modelo, serie o IP..." aria-label="Buscar en el reporte de contadores">
       </div>
-      <div id="counterMsg" class="muted" style="font-size:12px;margin:2px 0 10px">Elegí un período para consultar.</div>
+      <div id="counterMsg" class="muted" style="font-size:12px;margin:2px 0 10px">Seleccioná un período o completá Desde y Hasta; después pulsá Consultar.</div>
       <div class="table-wrap"><table id="counterResizableTable" class="column-resize-table"><thead><tr><th>Proyecto / Contrato</th></tr></thead><tbody id="counterBody"></tbody></table></div>
     </section>
 
@@ -1815,20 +1815,21 @@ function showView(view){
   if(view==='retiradas')loadRetiredFleet();
   $('counterQueryBtn').onclick=()=>loadCounterHistory(true);
   $('counterExcelBtn').onclick=exportCountersExcel;
-  $('counterPeriodOptions').addEventListener('click',e=>{
+  $('counterPeriodOptions').onclick=e=>{
     const choice=e.target.closest('[data-counter-period]');
     if(!choice)return;
-    const mode=choice.dataset.counterPeriod;
-    $('counterPeriodSelect').value=mode;
+    applyCounterPeriodSelection(choice.dataset.counterPeriod);
     $('counterPeriodMenu').open=false;
-    applyCounterPeriodSelection(mode,mode!=='custom');
-  });
-  $('counterDateSelect').onchange=()=>{
-    $('counterPeriodSelect').value='specific';
     $('counterDateMenu').open=false;
-    $('counterPeriodMenu').open=false;
-    applyCounterPeriodSelection('specific',true);
+    if($('counterMsg'))$('counterMsg').textContent='Período preparado. Pulsá Consultar para cargar el reporte.';
   };
+  ['counterFrom','counterTo'].forEach(id=>{
+    $(id).onchange=()=>{
+      if($('counterPeriodSelect'))$('counterPeriodSelect').value='';
+      updateCounterFilterButtonLabels();
+      if($('counterMsg'))$('counterMsg').textContent='Fechas preparadas. Pulsá Consultar para cargar el reporte.';
+    };
+  });
   $('counterSearch').oninput=()=>renderCounterRows();
 $('projectSearch').addEventListener('input',e=>{projectSearch=e.target.value;renderProjectList()});
 $('sidebarCompanyFilter').addEventListener('change',e=>changeSidebarCompanyFilter(e.target.value));
@@ -1836,8 +1837,13 @@ $('inventorySearch').addEventListener('input',e=>{inventorySearch=e.target.value
 $('refreshBtn').addEventListener('click',()=>currentPrinterDetailId?reloadPrinterDetail():(currentView==='retiradas'?loadRetiredFleet():loadProjectData()));
 $('exportExcelBtn').addEventListener('click',exportProjectExcel);
 document.querySelectorAll('.app-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view&&(view!=='comercial'||b.id===activeCommercialTileId)));
-  // Al abrir Contadores, consultar el período predeterminado automáticamente.
-  if(view==='contadores'){renderCounterColumnPicker();syncCounterColumnChecks();loadCounterHistory(true);}
+  // Abrir Contadores no consulta ni selecciona fechas por defecto.
+  if(view==='contadores'){
+    renderCounterColumnPicker();
+    syncCounterColumnChecks();
+    updateCounterFilterButtonLabels();
+    if(!counterRowsPeriod&&$('counterMsg'))$('counterMsg').textContent='Seleccioná un período o completá Desde y Hasta; después pulsá Consultar.';
+  }
   if(view==='duplicados')renderDuplicateNames();
 }
 // Agrupa reclamaciones de una misma impresora entre proyectos cuando serial
@@ -4217,18 +4223,23 @@ function isoDateLocal(d){
   const day=String(x.getDate()).padStart(2,'0');
   return y+'-'+m+'-'+day;
 }
+function formatCounterDateLabel(value){
+  if(!value)return '';
+  const parts=String(value).split('-');
+  return parts.length===3?parts[2]+'/'+parts[1]+'/'+parts[0]:String(value);
+}
 function updateCounterFilterButtonLabels(){
-  const period=$('counterPeriodSelect')?.value||'thisMonth';
-  const labels={thisMonth:'Este mes',today:'Hoy',yesterday:'Ayer',last7:'Últimos 7 días',last30:'Últimos 30 días',last90:'Últimos 90 días',lastMonth:'Mes anterior',thisYear:'Este año',specific:'Fecha específica',custom:'Personalizado'};
+  const period=$('counterPeriodSelect')?.value||'';
+  const labels={thisMonth:'Este mes',today:'Hoy',yesterday:'Ayer',last7:'Últimos 7 días',last30:'Últimos 30 días',last90:'Últimos 90 días',lastMonth:'Mes anterior',thisYear:'Este año'};
   const periodLabel=$('counterPeriodButtonLabel');
-  if(periodLabel)periodLabel.textContent='Período: '+(labels[period]||'Este mes');
+  if(periodLabel)periodLabel.textContent=period?'Período: '+(labels[period]||'Período'):'Período';
+  const from=$('counterFrom')?.value||'';
+  const to=$('counterTo')?.value||'';
   const dateLabel=$('counterDateButtonLabel');
-  const dateValue=$('counterDateSelect')?.value||'';
   if(dateLabel){
-    if(period==='specific'&&dateValue){
-      const [year,month,day]=dateValue.split('-');
-      dateLabel.textContent=day+'/'+month+'/'+year;
-    }else dateLabel.textContent='Fecha';
+    dateLabel.textContent=from&&to
+      ?'Fechas: '+formatCounterDateLabel(from)+' – '+formatCounterDateLabel(to)
+      :(from||to?'Fechas incompletas':'Fechas');
   }
   document.querySelectorAll('[data-counter-period]').forEach(button=>{
     button.classList.toggle('active',button.dataset.counterPeriod===period);
@@ -4236,56 +4247,43 @@ function updateCounterFilterButtonLabels(){
   });
 }
 function setDefaultCounterDates(){
-  const now=new Date();
-  const first=new Date(now.getFullYear(),now.getMonth(),1);
-  const from=$('counterFrom'),to=$('counterTo');
-  if(from&&!from.value)from.value=isoDateLocal(first);
-  if(to&&!to.value)to.value=isoDateLocal(now);
-  const period=$('counterPeriodSelect');
-  const date=$('counterDateSelect');
-  const custom=$('counterCustomRange');
-  if(period&&!period.value)period.value='thisMonth';
-  if(date&&!date.value)date.value=isoDateLocal(now);
-  if(custom)custom.classList.toggle('hidden',period?.value!=='custom');
+  // El reporte comienza vacío: no se preselecciona un período ni se consultan datos.
+  if($('counterPeriodSelect'))$('counterPeriodSelect').value='';
+  if($('counterFrom'))$('counterFrom').value='';
+  if($('counterTo'))$('counterTo').value='';
   updateCounterFilterButtonLabels();
 }
-function applyCounterPeriodSelection(mode,shouldLoad=true){
+function applyCounterPeriodSelection(mode){
   const now=new Date();
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const dateInput=$('counterDateSelect');
-  const customRange=$('counterCustomRange');
-  if(customRange)customRange.classList.toggle('hidden',mode!=='custom');
-  updateCounterFilterButtonLabels();
-  if(mode==='custom')return;
   let from='',to='';
   const end=new Date(today);
   const start=new Date(today);
   switch(mode){
     case 'today':break;
-    case 'yesterday':start.setDate(start.getDate()-1);end.setDate(end.getDate()-1);break;
+    case 'yesterday':
+      start.setDate(start.getDate()-1);
+      end.setDate(end.getDate()-1);
+      break;
     case 'last7':start.setDate(start.getDate()-6);break;
     case 'last30':start.setDate(start.getDate()-29);break;
     case 'last90':start.setDate(start.getDate()-89);break;
     case 'lastMonth':
-      start.setDate(1);start.setMonth(start.getMonth()-1);
+      start.setDate(1);
+      start.setMonth(start.getMonth()-1);
       end.setDate(0);
       break;
     case 'thisYear':start.setMonth(0,1);break;
-    case 'specific':{
-      const chosen=dateInput?.value||isoDateLocal(today);
-      if(dateInput&&!dateInput.value)dateInput.value=chosen;
-      from=chosen;to=chosen;
-      updateCounterFilterButtonLabels();
-      break;
-    }
     case 'thisMonth':
     default:start.setDate(1);break;
   }
-  if(!from)from=isoDateLocal(start);
-  if(!to)to=isoDateLocal(end);
+  from=isoDateLocal(start);
+  to=isoDateLocal(end);
+  if($('counterPeriodSelect'))$('counterPeriodSelect').value=mode;
   if($('counterFrom'))$('counterFrom').value=from;
   if($('counterTo'))$('counterTo').value=to;
-  if(shouldLoad&&currentView==='contadores'&&currentProjectId)loadCounterHistory(true);
+  updateCounterFilterButtonLabels();
+  // Solo prepara las fechas. La consulta se ejecuta al pulsar Consultar.
 }
 function validateCounterDates(){
   const from=$('counterFrom')?.value||'';
@@ -4673,7 +4671,7 @@ function renderCounterRows(){
   const visibleRows=counterRowsMatchingSearch();
   head.innerHTML=columns.map(col=>'<th>'+escapeHtml(col.label)+'</th>').join('');
   if(!visibleRows.length){
-    const message=counterRows.length?'No hay impresoras que coincidan con la búsqueda.':'No hay lecturas guardadas de impresoras en el período.';
+    const message=counterRows.length?'No hay impresoras que coincidan con la búsqueda.':(counterRowsPeriod?'No hay lecturas guardadas de impresoras en el período.':'Seleccioná un período o completá Desde y Hasta; después pulsá Consultar.');
     body.innerHTML='<tr><td colspan="'+Math.max(1,columns.length)+'" class="empty">'+escapeHtml(message)+'</td></tr>';
     renderCounterColumnPicker();
     syncCounterColumnChecks();
