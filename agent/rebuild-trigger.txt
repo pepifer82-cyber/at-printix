@@ -1,1 +1,1 @@
-Rebuild clean installer using separately tested Inno Setup lifecycle script and validated agent code patch.
+Re-run build with corrected path exclusions for the separately patched installer and README.
