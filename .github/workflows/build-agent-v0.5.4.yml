@@ -54,6 +54,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $patchGz = Join-Path $env:GITHUB_WORKSPACE 'agent/patches/agent-v0.5.4.patch.gz'
+          $patchHash = (Get-FileHash $patchGz -Algorithm SHA256).Hash.ToLower()
+          Write-Host "Patch SHA256: $patchHash"
+          $expectedPatchHash = '414497a7004655d6698485af6f7a29253d4b56434646d05204c35b08b7f35e47'
+          if ($patchHash -ne $expectedPatchHash) { throw 'Uploaded patch hash mismatch.' }
           $patch = Join-Path $env:RUNNER_TEMP 'agent-v0.5.4.patch'
           $inputStream = [System.IO.File]::OpenRead($patchGz)
           try {
