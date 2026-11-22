@@ -1,0 +1,31 @@
+name: Fetch A&T Printer Agent 0.5.3 source
+
+on:
+  push:
+    branches:
+      - agent-source-recovery
+    paths:
+      - .github/workflows/fetch-agent-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download published source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.3/agent-v0.5.3-source.zip"
+          curl --fail --location --retry 4 --retry-all-errors "$url" -o agent-v0.5.3-source.zip
+          echo "cf15688c17042b3f7eebfb57ca96f7e44f794882c4d33eb3eb2afdee0f9ec818  agent-v0.5.3-source.zip" | sha256sum --check -
+          unzip -l agent-v0.5.3-source.zip | head -80
+      - name: Upload verified source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-v0.5.3-source
+          path: agent-v0.5.3-source.zip
+          if-no-files-found: error
+          retention-days: 7
