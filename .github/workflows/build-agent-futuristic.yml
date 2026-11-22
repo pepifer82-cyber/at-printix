@@ -1,9 +1,9 @@
-name: Build A&T Printix Agent 0.5.4 Futuristic
+name: Build A&T Printix Agent 0.5.5 Futuristic
 
 on:
   push:
     branches:
-      - agent-rebuild/futuristic-0.5.4
+      - agent-rebuild/futuristic-0.5.5
     paths:
       - .github/workflows/build-agent-futuristic.yml
       - agent/rebuild/**
@@ -47,7 +47,7 @@ jobs:
             throw 'Official source archive did not extract to expected folder.'
           }
 
-      - name: Apply verified 0.5.4 engine changes and futuristic UI
+      - name: Apply verified 0.5.5 engine changes and futuristic UI
         run: python agent/rebuild/apply_futuristic_build.py
 
       - name: Install Inno Setup 6
@@ -67,7 +67,7 @@ jobs:
           set AT_SKIP_SIGNING=1
           call build.bat
           if errorlevel 1 exit /b 1
-          if not exist "Instalar_ATPrinterAgent_v0.5.4.exe" exit /b 1
+          if not exist "Instalar_ATPrinterAgent_v0.5.5.exe" exit /b 1
           if not exist "SHA256SUMS.txt" exit /b 1
 
       - name: Package clean source archive and build info
@@ -78,25 +78,27 @@ jobs:
           from pathlib import Path
           import zipfile
           root = Path(r"agent-v0.5.3")
-          out = Path("agent-v0.5.4-source.zip")
+          out = Path("agent-v0.5.5-source.zip")
           with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
               for p in root.rglob("*"):
                   if not p.is_file():
                       continue
                   rel = p.relative_to(root)
-                  if rel.parts[0].startswith("publish-") or p.suffix.lower() in {".exe", ".pdb"}:
+                  if any(part in {"bin", "obj", "publish-x64", "publish-x86", "TestResults", ".vs"} for part in rel.parts):
+                      continue
+                  if p.suffix.lower() in {".exe", ".pdb", ".dll", ".cache", ".log"}:
                       continue
                   if p.name == "SHA256SUMS.txt":
                       continue
-                  z.write(p, Path("agent-v0.5.4") / rel)
+                  z.write(p, Path("agent-v0.5.5") / rel)
           '@
           $python | python -
-          if (-not (Test-Path 'agent-v0.5.4-source.zip')) { throw 'Source ZIP was not created.' }
-          $installer = Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.3\Instalar_ATPrinterAgent_v0.5.4.exe'
+          if (-not (Test-Path 'agent-v0.5.5-source.zip')) { throw 'Source ZIP was not created.' }
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.3\Instalar_ATPrinterAgent_v0.5.5.exe'
           $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
           @"
-          A&T Printix Agent 0.5.4 — Futuristic Edition
-          Installer: Instalar_ATPrinterAgent_v0.5.4.exe
+          A&T Printix Agent 0.5.5 — Futuristic Edition
+          Installer: Instalar_ATPrinterAgent_v0.5.5.exe
           SHA256: $hash
           Unsigned: build runner has no A&T private signing certificate.
           "@ | Set-Content (Join-Path $env:GITHUB_WORKSPACE 'BUILD_INFO.txt') -Encoding UTF8
@@ -105,11 +107,11 @@ jobs:
       - name: Upload verified build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AandT-Printix-Agent-0.5.4-Futuristic
+          name: AandT-Printix-Agent-0.5.5-Futuristic
           path: |
-            agent-v0.5.3/Instalar_ATPrinterAgent_v0.5.4.exe
+            agent-v0.5.3/Instalar_ATPrinterAgent_v0.5.5.exe
             agent-v0.5.3/SHA256SUMS.txt
-            agent-v0.5.4-source.zip
+            agent-v0.5.5-source.zip
             BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 30
