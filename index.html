@@ -2783,9 +2783,10 @@ async function savePrinterInline(el){
   if(!el||el.dataset.saving==='1')return;
   const id=el.dataset.printerId;
   const field=el.dataset.field;
-  if(!id||!['description','city','serial_number'].includes(field))return;
-  if(field==='description'&&!canEditPrinterDescription()){
-    atNotify('Solo el administrador o un usuario autorizado puede modificar la descripción.','error');
+  // El número de serie es un dato físico de solo lectura; únicamente se editan descripción y ciudad.
+  if(!id||!['description','city'].includes(field))return;
+  if(!canEditPrinterDescription()){
+    atNotify('Solo los usuarios con acceso al proyecto pueden modificar los datos manuales.','error');
     return;
   }
 
@@ -2800,50 +2801,38 @@ async function savePrinterInline(el){
   el.disabled=true;
   const previousValues={
     description:String(r.description??''),
-    city:String(r.city??''),
-    serial_number:String(r.serial_number??'')
+    city:String(r.city??'')
   };
 
   try{
-    let result;
-    if(field==='serial_number'){
-      result=await api('/rest/v1/rpc/control_update_printer_serial',{
-        method:'POST',
-        headers:{'Prefer':'return=representation'},
-        body:JSON.stringify({p_printer_id:id,p_serial_number:clean})
-      });
-    }else{
-      const payload={
-        p_printer_id:id,
-        p_description:field==='description'?clean:previousValues.description.trim(),
-        p_city:field==='city'?clean:previousValues.city.trim()
-      };
-      result=await api('/rest/v1/rpc/control_update_printer_meta',{
-        method:'POST',
-        headers:{'Prefer':'return=representation'},
-        body:JSON.stringify(payload)
-      });
-    }
+    const payload={
+      p_printer_id:id,
+      p_description:field==='description'?clean:previousValues.description.trim(),
+      p_city:field==='city'?clean:previousValues.city.trim()
+    };
+    const result=await api('/rest/v1/rpc/control_update_printer_meta',{
+      method:'POST',
+      headers:{'Prefer':'return=representation'},
+      body:JSON.stringify(payload)
+    });
 
     const updated=Array.isArray(result)?result[0]:result;
     if(!updated?.id)throw new Error('Supabase no devolvió la impresora actualizada.');
 
-    // Actualiza la caché local para mantener visible el valor recién guardado.
     rows.forEach(x=>{
       if(String(x.printer_id)===String(id)){
         x.description=updated.description;
         x.city=updated.city;
-        x.serial_number=updated.serial_number;
         x.updated_at=updated.updated_at;
       }
     });
 
     el.value=String(updated[field]??'');
-    if(['description','city','serial_number'].includes(field)&&currentView==='inventario')renderAll();
+    if(['description','city'].includes(field)&&currentView==='inventario')renderAll();
 
   }catch(e){
     el.value=previousValues[field];
-    const fieldLabel={description:'la descripción',city:'la ciudad',serial_number:'el número de serie'}[field]||field;
+    const fieldLabel={description:'la descripción',city:'la ciudad'}[field]||field;
     atNotify('No se pudo guardar '+fieldLabel+': '+e.message);
   }finally{
     el.disabled=false;
@@ -4323,8 +4312,7 @@ function renderInventoryTable(visibleInventory,activeRows){
       }
       if(col.id==='serial'){
         const value=printerSerialValue(r);
-        if(canEditPrinterDescription())return '<td><input class="inline-edit serial-edit inventory-manual-edit" type="text" maxlength="160" placeholder="Serie de fábrica…" title="Número de serie físico. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
-        return '<td>'+escapeHtml(value||'—')+'</td>';
+        return '<td class="serial-readonly" title="Número de serie físico detectado por el agente · Solo lectura">'+escapeHtml(value||'—')+'</td>';
       }
       if(col.id==='city'){
         const value=String(r.city??'');
@@ -4418,7 +4406,7 @@ function renderAll(){
   if(currentView!=='retiradas'){
   const retiredTerm=retiredSearch.trim().toLowerCase();
   const visibleRetired=retiredTerm?retiredRows.filter(r=>[r.display_name,r.description,r.city,r.last_status,r.agent_code,r.machine_name,r.ip_address,r.serial_number].some(v=>String(v??'').toLowerCase().includes(retiredTerm))):retiredRows;
-  $('retiredBody').innerHTML=visibleRetired.length?visibleRetired.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+escapeHtml(r.city||'—')+'</td><td>'+escapeHtml(r.last_status||'—')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(r.ip_address||'—')+'</td><td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora" placeholder="Serie de fábrica" value="'+escapeHtml(printerSerialValue(r))+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td>'+escapeHtml(r.retired_at?new Date(r.retired_at).toLocaleString():'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',false)">Restaurar</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No hay impresoras retiradas.</td></tr>';
+  $('retiredBody').innerHTML=visibleRetired.length?visibleRetired.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+escapeHtml(r.city||'—')+'</td><td>'+escapeHtml(r.last_status||'—')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(r.ip_address||'—')+'</td><td class="serial-readonly" title="Número de serie físico de fábrica · Solo lectura">'+escapeHtml(printerSerialValue(r)||'—')+'</td><td>'+escapeHtml(r.retired_at?new Date(r.retired_at).toLocaleString():'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',false)">Restaurar</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No hay impresoras retiradas.</td></tr>';
   }
   $('agentsBody').innerHTML=agentRows.length?agentRows.map(a=>'<tr><td>'+escapeHtml(a.agent_code)+'</td><td>'+escapeHtml(a.machine_name)+'</td><td>'+escapeHtml(a.windows_user)+'</td><td>'+escapeHtml(a.app_version)+'</td><td>'+statePill(agentState(a))+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td><button class="toolbar-btn primary" type="button" '+(a.active===false?'disabled':'')+' onclick="openAgentRemoteConfig(\''+escapeHtml(a.id)+'\')">Configurar</button></td></tr>').join(''):'<tr><td colspan="7" class="empty">No hay agentes registrados.</td></tr>';
   $('remoteAgentsBody').innerHTML=agentRows.length?agentRows.map(a=>'<tr><td><b>'+escapeHtml(a.agent_code||'Agente')+'</b></td><td>'+escapeHtml(a.machine_name||'Equipo sin nombre')+'</td><td>'+escapeHtml(a.windows_user||'—')+'</td><td>'+statePill(agentState(a))+'</td><td>'+escapeHtml(lastContact(a.last_seen_at))+'</td><td><button class="toolbar-btn primary" type="button" style="font-weight:800" '+(a.active===false?'disabled':'')+' onclick="openAgentRemoteConfig(\''+escapeHtml(a.id)+'\')">⚙ Configurar IP y USB</button> <button class="toolbar-btn" type="button" '+(a.active===false?'disabled':'')+' onclick="sendRescanForAgent(\''+escapeHtml(a.id)+'\')">▶ Buscar ahora</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">Todavía no hay agentes registrados. Instalá el agente, cargá el serial y completá la primera sincronización.</td></tr>';
@@ -5095,7 +5083,7 @@ function renderCounterRows(){
   body.innerHTML=visibleRows.map(r=>{
     const cells=columns.map(col=>{
       if(col.id==='serial'){
-        return '<td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora, no el serial de activación del proyecto" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
+        return '<td class="serial-readonly" title="Número de serie físico detectado por el agente · Solo lectura">'+escapeHtml(printerSerialValue(r)||'—')+'</td>';
       }
       return '<td>'+escapeHtml(counterDisplayValue(counterColumnValue(col,r)))+'</td>';
     }).join('');
