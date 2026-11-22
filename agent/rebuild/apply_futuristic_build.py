@@ -69,7 +69,7 @@ verifier_source = workspace / "agent" / "verify-build.ps1"
 verifier_target = source_root / "verify-build.ps1"
 if not verifier_source.exists():
     raise SystemExit("Falta agent/verify-build.ps1 del repositorio.")
-verifier_target.write_text(verifier_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\\n")
+verifier_target.write_text(verifier_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
 
 notes = """## A&T Printix Agent 0.5.4 — Futuristic Edition
 
