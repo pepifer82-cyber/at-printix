@@ -352,6 +352,8 @@ html[data-theme="dark"] .auth-wrap{background:transparent}
 #inventoryBody .inventory-single-line{display:inline-block!important;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;max-width:none!important}
 #inventoryBody .printer-model-link{display:inline-block;white-space:nowrap!important;max-width:none}
 #inventoryBody .inventory-actions{white-space:nowrap;min-width:118px}
+#inventoryBody .inventory-retire-x{width:27px;height:27px;min-width:27px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid #fecaca;background:#fff1f2;color:#dc2626;font-size:21px;font-weight:800;line-height:1;border-radius:7px;cursor:pointer}
+#inventoryBody .inventory-retire-x:hover{background:#fee2e2;border-color:#f87171;color:#b91c1c}
 #inventoryBody .inventory-action-group{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;white-space:nowrap}
 #inventoryBody .inventory-action-group .icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 8px;font-size:11px;line-height:1.2}
 .printer-detail-page{min-height:60vh}
@@ -4340,7 +4342,7 @@ function renderInventoryTable(visibleInventory,activeRows){
         return '<td>'+(url?'<a class="map-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir mapa</a>':'—')+'</td>';
       }
       if(col.id==='retire'){
-        return '<td class="inventory-actions"><button class="icon-btn" type="button" title="Retirar esta impresora del inventario activo" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar equipo</button></td>';
+        return '<td class="inventory-actions"><button class="icon-btn inventory-retire-x" type="button" aria-label="Retirar equipo" title="Retirar equipo" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">×</button></td>';
       }
       return '<td>'+escapeHtml(inventoryFormatValue(col.value(r,activeRows)))+'</td>';
     }).join('');
