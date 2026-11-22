@@ -5668,7 +5668,9 @@ let renewalRequestInitialPoll=true;
 let renewalRequestSeenIds=new Set();
 
 function isPendingRenewalRequest(request){
-  return !['completed','rejected'].includes(String(request?.status||'').toLowerCase());
+  // El indicador y las notificaciones cuentan solo solicitudes nuevas sin leer.
+  // Leer no resuelve el trámite: el registro sigue en la bandeja hasta completarse.
+  return !request?.read_at && !['completed','rejected'].includes(String(request?.status||'').toLowerCase());
 }
 function renderRenewalPendingBadge(requests){
   const pending=(Array.isArray(requests)?requests:[]).filter(isPendingRenewalRequest);
@@ -5689,6 +5691,20 @@ function renderRenewalPendingBadge(requests){
       :'No hay solicitudes pendientes. La bandeja se revisa automáticamente cada 30 segundos.';
     status.style.color=pending.length?'#c53040':'';
     status.style.fontWeight=pending.length?'800':'';
+  }
+}
+const renewalDesktopNotifications=new Map();
+async function markRenewalRequestRead(id){
+  try{
+    await api('/rest/v1/rpc/control_admin_mark_renewal_request_read',{
+      method:'POST',body:JSON.stringify({p_request_id:id})
+    });
+    const notice=renewalDesktopNotifications.get(String(id));
+    if(notice){notice.close();renewalDesktopNotifications.delete(String(id))}
+    atNotify('Solicitud marcada como leída. El aviso desaparecerá; el pedido permanece guardado.','success',7000);
+    await loadRenewalRequests();
+  }catch(e){
+    atNotify('No se pudo marcar como leída: '+e.message,'error');
   }
 }
 function updateRenewalDesktopButton(){
@@ -5733,6 +5749,8 @@ function notifyNewRenewalRequest(request){
   if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
     try{
       const notice=new Notification(title,{body:detail,tag:'at-printix-renewal-'+request.id,requireInteraction:true});
+      renewalDesktopNotifications.set(String(request.id),notice);
+      notice.onclose=()=>renewalDesktopNotifications.delete(String(request.id));
       notice.onclick=()=>{
         window.focus();
         activeCommercialTileId='renewalRequestsTile';
@@ -5799,7 +5817,8 @@ async function loadRenewalRequests(){
   try{
     const data=await api('/rest/v1/rpc/control_admin_list_renewal_requests',{method:'POST',body:'{}'});
     const requests=Array.isArray(data?.requests)?data.requests:[];
-    $('renewalRequestsMsg').textContent=requests.length+' solicitud(es) registradas.';
+    const unreadCount=requests.filter(isPendingRenewalRequest).length;
+    $('renewalRequestsMsg').textContent=requests.length+' solicitud(es) registradas · '+unreadCount+' sin leer.';
     renderRenewalPendingBadge(requests);
     body.innerHTML=requests.length?requests.map(r=>{
       const when=r.submitted_at?new Date(r.submitted_at).toLocaleString('es-PY'):'—';
@@ -5812,7 +5831,10 @@ async function loadRenewalRequests(){
       const prepare= r.requested_plan_id ? '<button class="icon-btn" type="button" onclick="prepareSubscriptionFromRequest('+JSON.stringify(r.company_id)+','+JSON.stringify(r.requested_plan_id)+','+Number(r.requested_amount||0)+','+JSON.stringify(r.billing_cycle||'monthly')+')">Preparar licencia</button>' : '';
       const wa=renewalWhatsAppLink(r);
       const waButton=wa?'<a class="icon-btn" target="_blank" rel="noopener" href="'+escapeHtml(wa)+'">Responder por WhatsApp</a>':'<span class="muted">Sin WhatsApp</span>';
-      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+waButton+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar</button></div></td></tr>';
+      const readButton=r.read_at
+        ?'<span class="muted" title="Leída '+escapeHtml(new Date(r.read_at).toLocaleString('es-PY'))+'">✓ Leída</span>'
+        :'<button class="icon-btn" type="button" onclick="markRenewalRequestRead('+JSON.stringify(r.id)+')">✓ Marcar leída</button>';
+      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+readButton+waButton+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar estado</button></div></td></tr>';
     }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay solicitudes de renovación.</td></tr>';
   }catch(e){$('renewalRequestsMsg').textContent='No se pudieron cargar las solicitudes: '+e.message}
 }
