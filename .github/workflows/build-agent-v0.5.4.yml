@@ -8,6 +8,7 @@ on:
       - .github/workflows/build-agent-v0.5.4.yml
       - agent/patch-parts/*.txt
       - agent/verify-build.ps1
+      - agent/apply-installer-cleaninstall.ps1
       - agent/RELEASE_NOTES_0.5.4.md
       - agent/rebuild-trigger.txt
   workflow_dispatch:
@@ -62,20 +63,26 @@ jobs:
               $part = Join-Path $partsDir ('part-{0:d2}.txt' -f $_)
               if (-not (Test-Path $part)) { throw "Missing patch segment: $part" }
               $segment = [System.IO.File]::ReadAllText($part, [System.Text.Encoding]::UTF8)
-              $segment = $segment.Replace("`r`n", "`n").Replace("`r", "`n")
+              $segment = $segment.Replace([string][char]13 + [char]10, [string][char]10).Replace([string][char]13, [string][char]10)
               $writer.Write($segment)
             }
           } finally {
             $writer.Dispose()
           }
           $patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLower()
-          Write-Host "Reconstructed patch SHA256: $patchHash"
+          Write-Host "Patch checksum: $patchHash"
           $expectedPatchHash = '1ee1be7dc4525ce712908b2470578051555ae6663a2fbafd70889c404b755e6d'
-          if ($patchHash -ne $expectedPatchHash) { throw 'Reconstructed patch hash mismatch.' }
-          git -C $env:SOURCE_ROOT apply --check -p2 $patch
-          if ($LASTEXITCODE -ne 0) { throw 'Patch validation failed.' }
-          git -C $env:SOURCE_ROOT apply -p2 $patch
-          if ($LASTEXITCODE -ne 0) { throw 'Patch application failed.' }
+          if ($patchHash -ne $expectedPatchHash) { throw 'Reconstructed patch checksum mismatch.' }
+
+          # The installer script and README are handled separately below; apply
+          # all agent source/code/test changes against the exact official 0.5.3 tree.
+          git -C $env:SOURCE_ROOT apply --check --exclude='AandTPrinterAgent.iss' --exclude='README.txt' -p2 $patch
+          if ($LASTEXITCODE -ne 0) { throw 'Agent code patch validation failed.' }
+          git -C $env:SOURCE_ROOT apply --exclude='AandTPrinterAgent.iss' --exclude='README.txt' -p2 $patch
+          if ($LASTEXITCODE -ne 0) { throw 'Agent code patch application failed.' }
+
+          & (Join-Path $env:GITHUB_WORKSPACE 'agent/apply-installer-cleaninstall.ps1') -SourceRoot $env:SOURCE_ROOT
+
           Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'agent/verify-build.ps1') (Join-Path $env:SOURCE_ROOT 'verify-build.ps1') -Force
           Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'agent/RELEASE_NOTES_0.5.4.md') (Join-Path $env:SOURCE_ROOT 'RELEASE_NOTES_0.5.4.md') -Force
           Remove-Item (Join-Path $env:SOURCE_ROOT 'RELEASE_NOTES_0.5.3.md') -Force
