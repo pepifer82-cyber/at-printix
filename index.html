@@ -2869,7 +2869,7 @@ function printerInventoryLabel(r){
     // Samsung y otros controladores pueden enviar modelo + firmware + motor + red + serie.
     // Si el texto está estructurado por punto y coma, mostrar únicamente el primer identificador.
     const parts=name.split(';').map(part=>part.trim()).filter(Boolean);
-    const hasTechnicalFields=parts.length>1&&parts.slice(1).some(part=>/^(?:V\\d|ENGINE\\b|NIC\\b|S\\/?N\\s*[:：]?|SERIAL(?:\\s*(?:NO|NUMBER))?\\s*[:：]?|FW\\b|FIRMWARE\\b)/i.test(part));
+    const hasTechnicalFields=parts.length>1&&parts.slice(1).some(part=>/^(?:V\d|ENGINE\b|NIC\b|S\/?N\s*[:：]?|SERIAL(?:\s*(?:NO|NUMBER))?\s*[:：]?|FW\b|FIRMWARE\b)/i.test(part));
     if(hasTechnicalFields)name=parts[0];
   }
   // Quitar datos de conexión que algunos controladores agregan al nombre/modelo.
