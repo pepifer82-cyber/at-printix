@@ -83,7 +83,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           choco install innosetup --yes --no-progress
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
-          $iscc = Join-Path $env:ProgramFiles(x86) 'Inno Setup 6/ISCC.exe'
+          $pf86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+          $iscc = Join-Path $pf86 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) { throw 'ISCC.exe not found after installation.' }
 
       - name: Build, test and verify x64/x86 installers
