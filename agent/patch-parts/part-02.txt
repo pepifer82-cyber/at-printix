@@ -1,0 +1,149 @@
+          '¿Quieres una instalación limpia?' + #13#10 #13#10 +
+-              'Sí: borra también la activación, la configuración y la caché anteriores. Habrá que pegar el serial otra vez.' + #13#10 +
+-              'No: actualiza conservando la activación y la configuración.',
+-              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+-      FullCleanRequested := True;
+-  end;
+-
+-  Result := True;
+-end;
+-
+-function PrepareToInstall(var NeedsRestart: Boolean): String;
+-var
+-  List: TStringList;
+-  i, sep, rcode: Integer;
+-  item, un, path, msg: String;
+-begin
+-  Result := '';
++  // Las actualizaciones silenciosas desde el panel conservan serial/configuracion.
++  if IsSilentInstall() and (not FullCleanRequested) then
++  begin
++    Result := True;
++    Exit;
++  end;
+ 
+   List := TStringList.Create;
+   try
+-    ScanLegacyAgents(HKEY_LOCAL_MACHINE, List);
+-    ScanLegacyAgents(HKEY_CURRENT_USER, List);
+-
+-    if List.Count > 0 then
++    List.Sorted := True;
++    List.Duplicates := dupIgnore;
++    ScanPreviousAandT(HKEY_LOCAL_MACHINE, List);
++    ScanPreviousAandT(HKEY_CURRENT_USER, List);
++    foundPrior := (List.Count > 0) or AnyAgentDataArtifacts();
++
++    if foundPrior and (not FullCleanRequested) then
+     begin
+-      msg := '';
++      details := '';
+       for i := 0 to List.Count - 1 do
+       begin
+         item := List[i];
+         sep := Pos('|', item);
+-        msg := msg + '  - ' + Copy(item, 1, sep - 1) + #13#10;
++        if sep > 0 then details := details + '  - ' + Copy(item, 1, sep - 1) + #13#10;
+       end;
+-
+-      // Interactivo: preguntar. Silencioso (update remoto): desinstalar sin preguntar.
+-      if WizardSilent() or
+-         (MsgBox('Se detectaron instalaciones anteriores del agente:' #13#10 #13#10 +
+-                 msg + #13#10 +
+-                 '¿Desinstalarlas antes de continuar? Se eliminan por completo, incluida la activación anterior, para que la nueva instalación arranque limpia.',
+-                 mbConfirmation, MB_YESNO) = IDYES) then
++      if details = '' then details := '  - Datos/configuración residual de A&T detectados.' + #13#10;
++
++      if MsgBox('Se detectó una instalación anterior de A&T Printer Agent o datos de una versión previa:' + #13#10 #13#10 +
++                details + #13#10 +
++                '¿Desinstalar las versiones anteriores y borrar sus activaciones/configuraciones antes de instalar A&T Printer Agent 0.5.4?' + #13#10 #13#10 +
++                'Sí: desinstala los agentes A&T anteriores y deja esta instalación completamente limpia. Después deberás ingresar manualmente el serial del proyecto.' + #13#10 +
++                'No: cancela la instalación sin modificar nada.',
++                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
++        FullCleanRequested := True
++      else
+       begin
+-        for i := 0 to List.Count - 1 do
+-        begin
+-          item := List[i];
+-          sep := Pos('|', item);
+-          un := Copy(item, sep + 1, Length(item));
+-          path := StripOuterQuotes(un);
+-          if path <> '' then
+-          begin
+-            Exec(path, '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES', '',
+-                 SW_SHOW, ewWaitUntilTerminated, rcode);
+-            LegacyRemoved := True;
+-          end;
+-        end;
+-
+-        // Datos de 0.4.x, arranque automatico y restos compartidos.
+-        WipeAgentArtifacts(True);
++        Result := False;
++        Exit;
+       end;
+     end;
+   finally
+     List.Free;
+   end;
++
++  Result := True;
++end;
++
++function PrepareToInstall(var NeedsRestart: Boolean): String;
++var
++  List: TStringList;
++  i, sep, rcode: Integer;
++  item, un, path: String;
++  launched: Boolean;
++begin
++  Result := '';
++  if not FullCleanRequested then Exit;
++
++  List := TStringList.Create;
++  try
++    List.Sorted := True;
++    List.Duplicates := dupIgnore;
++    ScanPreviousAandT(HKEY_LOCAL_MACHINE, List);
++    ScanPreviousAandT(HKEY_CURRENT_USER, List);
++
++    // Retira cada desinstalador registrado de A&T, incluido el AppId de la linea 0.5.x.
++    for i := 0 to List.Count - 1 do
++    begin
++      item := List[i];
++      sep := Pos('|', item);
++      if sep <= 0 then Continue;
++      un := Copy(item, sep + 1, Length(item));
++      path := StripOuterQuotes(un);
++      if path = '' then Continue;
++
++      launched := Exec(path, '/VERYSILENT /FULLCLEAN /NORESTART /SUPPRESSMSGBOXES',
++                       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++      if (not launched) or (rcode <> 0) then
++      begin
++        Result := 'No se pudo desinstalar la versión anterior de A&T (' + Copy(item, 1, sep - 1) + '). Código: ' + IntToStr(rcode) + '. La instalación nueva se canceló para evitar mezclar archivos.';
++        Exit;
++      end;
++    end;
++  finally
++    List.Free;
++  end;
++
++  // Cierra cualquier proceso residual y borra TODOS los datos locales A&T
++  // en los perfiles Windows. No se toca el proyecto ni las licencias de Supabase.
++  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM ATPrinterAgent.exe /T /F',
++       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++  WipeAgentArtifacts(False);
+ end;
+ 
+ procedure CurStepChanged(CurStep);
+--- a/agent-v0.5.3/README.txt
++++ b/agent-v0.5.3/README.txt
+@@ -1,4 +1,4 @@
+-﻿A&T Printer Agent 0.5.3
++﻿A&T Printer Agent 0.5.4
+ =======================
+ 
+ Agente de monitoreo de impresoras de A&T Informatica.
+ 
+ Novedades 0.5.3:
