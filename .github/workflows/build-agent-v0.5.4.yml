@@ -9,6 +9,8 @@ on:
       - agent/patches/agent-v0.5.4.patch.gz
       - agent/verify-build.ps1
       - agent/RELEASE_NOTES_0.5.4.md
+      - agent/rebuild-trigger.txt
+  workflow_dispatch:
 
 permissions:
   contents: write
