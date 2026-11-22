@@ -3832,8 +3832,8 @@ function renderInventoryTable(visibleInventory,activeRows){
       if(col.id==='ip')return '<td class="inventory-nowrap">'+escapeHtml(printerIpPort(r)||'—')+'</td>';
       if(col.id==='state')return '<td>'+statePill(printerState(r))+'</td>';
       if(col.id==='actions')return '<td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td>';
-      const col=INVENTORY_COLUMN_DEFS.find(item=>item.id===col.id);
-      return '<td>'+escapeHtml(col?col.value(r)??'—':'—')+'</td>';
+      const definition=INVENTORY_COLUMN_DEFS.find(item=>item.id===col.id);
+      return '<td>'+escapeHtml(definition?(definition.value(r)??'—'):'—')+'</td>';
     }).join('');
     return '<tr data-printer-id="'+escapeHtml(r.printer_id)+'">'+cells+'</tr>';
   }).join(''):'<tr><td colspan="'+columns.length+'" class="empty">'+(term?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
