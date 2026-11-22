@@ -147,3 +147,4 @@
  Agente de monitoreo de impresoras de A&T Informatica.
  
  Novedades 0.5.3:
+- Si una impres
