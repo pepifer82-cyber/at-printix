@@ -4128,8 +4128,9 @@ function inventoryMapUrl(r){
 }
 const INVENTORY_COLUMN_DEFS=[
   {id:'project',label:'Proyecto / Contrato',value:()=>projects.find(p=>String(p.id)===String(currentProjectId))?.name||'—'},
-  {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
   {id:'manufacturer',label:'Fabricante',value:r=>printerManufacturerValue(r)||'—'},
+  {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
+  {id:'description',label:'Descripción',value:r=>String(r.description||'').trim()||'—'},
   {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
   {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
   {id:'country',label:'País',value:r=>inventoryFirstValue(r,['country','country_name','nation'])||'—'},
@@ -4157,11 +4158,13 @@ const INVENTORY_COLUMN_DEFS=[
   {id:'extra5',label:'Extra 5',value:r=>inventoryFirstValue(r,['extra_5','extra5','custom_field_5','custom5','additional_field_5'])||'—'},
   {id:'retire',label:'Retirar',value:()=>''}
 ];
-const INVENTORY_DEFAULT_COLUMNS=['project','model','manufacturer','serial','city','address','ip','hostname','class','lastUpdate','retire'];
+const INVENTORY_DEFAULT_COLUMNS=['project','manufacturer','model','description','city','address','ip','serial','lastUpdate','hostname','class','retire'];
 let inventoryVisibleColumns=new Set(INVENTORY_DEFAULT_COLUMNS);
 try{
   const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns-v2')||'null');
   if(Array.isArray(saved))inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
+  // La descripción debe quedar visible también en navegadores que ya guardaron preferencias anteriores.
+  inventoryVisibleColumns.add('description');
 }catch{}
 function renderInventoryColumnPicker(){
   const panel=$('inventoryColumnOptions');
