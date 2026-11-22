@@ -1762,7 +1762,7 @@ async function loadProjectData(){
   }catch(e){
     console.error('Error cargando impresoras del proyecto:',e);
     if($('inventoryCount'))$('inventoryCount').textContent='Error al cargar el inventario: '+(e?.message||e);
-    if($('inventoryBody'))$('inventoryBody').innerHTML='<tr><td colspan="10" class="empty">No se pudo cargar el inventario. Presioná Actualizar y revisá la conexión.</td></tr>';
+    if($('inventoryBody'))$('inventoryBody').innerHTML='<tr><td colspan="12" class="empty">No se pudo cargar el inventario. Presioná Actualizar y revisá la conexión.</td></tr>';
   }
 }
 function isRealPrinter(r){
@@ -2241,6 +2241,8 @@ function renderPrinterDetail(r){
     printerDetailValue('Alias / nombre visible en el panel',r.description||'—'),
     printerDetailValue('Fabricante',printerManufacturerValue(r)),
     printerDetailValue('Serie de fábrica',printerSerialValue(r)),
+    printerDetailValue('Código de fábrica (FN)',printerFactoryCodeValue(r)),
+    printerDetailValue('Service ID',printerServiceIdValue(r)),
     printerDetailValue('Descripción / ubicación',r.description),
     printerDetailValue('Ciudad',r.city),
     printerDetailValue('Conexión',connectionLabel(r)),\n    printerDetailValue('Controlador / lenguaje de impresión',printerDriverValue(r)),
@@ -2919,6 +2921,12 @@ function printerSerialValue(r){
   }
   return '';
 }
+function printerFactoryCodeValue(r){
+  return printerTaggedIdentityValue(r,'FN|FACTORY(?:\\s+NO|\\s+NUMBER)?');
+}
+function printerServiceIdValue(r){
+  return printerTaggedIdentityValue(r,'SVCID|SERVICE(?:\\s*ID)?');
+}
 function printerMacValue(r){
   const stored=String(r?.mac_address||'').trim();
   if(stored)return stored;
@@ -2961,7 +2969,7 @@ function printerInventoryLabel(r){
     if(meaningful.length)name=meaningful.find(part=>/^(?:MDL|PID|MODEL|PRODUCT)\s*[:：=]/i.test(part))?.replace(/^(?:MDL|PID|MODEL|PRODUCT(?:\s+NAME)?)\s*[:：=]\s*/i,'')||meaningful[0];
   }
   name=name.replace(/^#+\s*/,'').trim()
-    .replace(/[\\s,;]+$/,'')
+    .replace(/[\s,;]+$/,'')
     .replace(/\s*[([]\s*(?:USB\s*\d{0,5}|WSD(?:[-_\s][A-Z0-9_.-]+)?|TCP\s*[/_-]?\s*IP|Wi[\s_-]?Fi|Wireless|Ethernet|LAN|Network|NET|IP[_ -]?\d{1,3}(?:[._-]\d{1,3}){3})\s*[)\]]\s*$/i,'')
     .replace(/\s+(?:[-–—]\s*)?(?:USB\s*\d{0,5}|WSD(?:[-_\s]+[A-Z0-9_.-]+)?|Ethernet|LAN|Network|NET)\s*$/i,'')
     .replace(/\s*[([]?\s*(?:PCL\s*(?:mS|m|XL|6|5[ec]?|5)|PostScript|PS(?:\s+Class\s+Driver)?|UFR\s*II|BR[- ]?Script|KX(?:\s+Driver)?|XPS(?:\s+Class\s+Driver)?|IPP(?:\s+Class\s+Driver)?|Class\s+Driver)(?:\s*\([^)]*\))?\s*[)\]]?\s*$/i,'')
@@ -2977,7 +2985,14 @@ function printerIpPort(r){
   const usbPort=String(r?.usb_port||'').trim();
   const port=winPort||usbPort||String(r?.port_name||'').trim();
   if(/^WSD(?:[-_\s].*)?$/i.test(port))return 'WSD';
-  return port||'—';
+  if(port)return port;
+  const sources=printerIdentitySources(r);
+  for(const source of sources){
+    const usb=source.match(/\\bUSB\\d{1,5}\\b/i);
+    if(usb)return usb[0].toUpperCase();
+    if(/\\bETHERNET\\b/i.test(source))return 'Ethernet';
+  }
+  return '—';
 }
 function toggleManualPrinterForm(show){
   const panel=$('manualPrinterPanel');
