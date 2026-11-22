@@ -1,0 +1,100 @@
+     {
+-        if (string.IsNullOrWhiteSpace(settings.Serial)) return (false, "Falta el serial de activación.");
++        if (string.IsNullOrWhiteSpace(settings.Serial)) return (false, "Falta el serial de activación.", null);
+ 
+         var envelope = new SyncEnvelope
+         {
+             Serial = settings.Serial,
+             InstallId = settings.InstallId,
++            AgentToken = settings.AgentToken ?? "",
+             MachineName = Environment.MachineName,
+             WindowsUser = Environment.UserName,
+             AppVersion = Program.AppVersion,
+@@ -45,13 +46,24 @@
+         {
+             using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
+             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+-            return response.IsSuccessStatusCode
+-                ? (true, "Sincronizado")
+-                : (false, $"Error {response.StatusCode}: {ExtractMessage(body, "rechazado por el servidor")}");
++            if (!response.IsSuccessStatusCode)
++                return (false, $"Error {response.StatusCode}: {ExtractMessage(body, "rechazado por el servidor")}", null);
++
++            string? issuedToken = null;
++            try
++            {
++                using var document = JsonDocument.Parse(body);
++                if (document.RootElement.TryGetProperty("agent_token", out var tokenValue) &&
++                    tokenValue.ValueKind == JsonValueKind.String)
++                    issuedToken = tokenValue.GetString();
++            }
++            catch { /* legacy-compatible successful responses may not include a token */ }
++
++            return (true, "Sincronizado", string.IsNullOrWhiteSpace(issuedToken) ? null : issuedToken);
+         }
+         catch (Exception ex)
+         {
+-            return (false, "Sin conexión con el panel: " + ex.Message);
++            return (false, "Sin conexión con el panel: " + ex.Message, null);
+         }
+     }
+ 
+@@ -65,6 +77,7 @@
+         {
+             Serial = settings.Serial,
+             InstallId = settings.InstallId,
++            AgentToken = settings.AgentToken ?? "",
+             CommandAcks = settings.CommandAcks.ToList()
+         };
+ 
+--- a/agent-v0.5.3/src/Updates/RemoteUpdater.cs
++++ b/agent-v0.5.3/src/Updates/RemoteUpdater.cs
+@@ -1,4 +1,4 @@
+-﻿using System.Security.Cryptography;
++using System.Security.Cryptography;
+ using System.Text;
+ using System.Text.Json;
+ 
+@@ -12,7 +12,7 @@
+ /// </summary>
+ public sealed class RemoteUpdater
+ {
+-    private const string ReleasesApi = "https://api.github.com/repos/pepifer82-cyber/my-project/releases?per_page=100";
++    private const string ReleasesApi = "https://api.github.com/repos/pepifer82-cyber/at-printix/releases?per_page=100";
+     internal const string UpdateTaskName = "ATPrinterAgentUpdate";
+     internal const string SilentInstallArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART";
+ 
+@@ -82,7 +82,7 @@
+             if (item.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True) continue;
+             if (!item.TryGetProperty("tag_name", out var tag)) continue;
+             var version = ParseVersion(tag.GetString());
+-            if (version is null || version.Major <= 0) continue;
++            if (!IsSupportedReleaseVersion(version)) continue;
+ 
+             if (!item.TryGetProperty("assets", out var assets)) continue;
+             string? installerUrl = null, sumsUrl = null;
+@@ -267,6 +267,9 @@
+         return Convert.ToHexString(hash).ToLowerInvariant();
+     }
+ 
++    internal static bool IsSupportedReleaseVersion(Version? version)
++        => version is not null && (version.Major > 0 || version.Minor > 0);
++
+     internal static Version ParseVersion(string? value)
+     {
+         if (string.IsNullOrWhiteSpace(value)) return new Version(0, 0, 0);
+--- a/agent-v0.5.3/tests/AgentCore.Tests/AgentSettingsStoreTests.cs
++++ b/agent-v0.5.3/tests/AgentCore.Tests/AgentSettingsStoreTests.cs
+@@ -42,6 +42,22 @@
+         Assert.Contains("dpapi:", raw);                                    // protegido en disco
+         Assert.DoesNotContain("AT-TEST-SERIAL-001", raw);                  // sin texto plano
+         Assert.Equal("AT-TEST-SERIAL-001", settings.Serial);               // memoria no mutada
++    }
++
++    [Fact]
++    public void Agent_token_se_protege_en_disco_y_se_recupera()
++    {
++        var file = Path.Combine(_tempDir, "config-token.json");
++        var store = Store(file);
++
++        var settings = new AgentSettings { AgentToken = "agent-token-test-secret" };
