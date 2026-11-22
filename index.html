@@ -4302,7 +4302,7 @@ function inventoryMetadataInput(r,config){
   if(config.type==='date'&&value)value=String(value).slice(0,10);
   const type=config.type||'text';
   const cls='inline-edit inventory-manual-edit'+(type==='date'?' inventory-date-edit':'');
-  return '<input class="'+cls+'" type="'+type+'" maxlength="500" placeholder="'+escapeHtml(config.placeholder||'Completar…')+'" title="Dato manual. Se guarda automáticamente al salir del campo." aria-label="'+escapeHtml(config.label||config.key)+'" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-inventory-field="'+escapeHtml(config.key)+'" onblur="saveInventoryMetadataInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}">';
+  return '<input class="'+cls+'" type="'+type+'" maxlength="500" placeholder="'+escapeHtml(config.placeholder||'Completar…')+'" title="Dato manual. Se guarda automáticamente al salir del campo." aria-label="'+escapeHtml(config.label||config.key)+'" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-inventory-field="'+escapeHtml(config.key)+'" onblur="saveInventoryMetadataInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}">';
 }
 function renderInventoryTable(visibleInventory,activeRows){
   const table=$('inventoryResizableTable');
@@ -4317,18 +4317,18 @@ function renderInventoryTable(visibleInventory,activeRows){
       if(col.id==='description'){
         const value=String(r.description??'');
         if(canEditPrinterDescription()){
-          return '<td class="inventory-description-cell"><input class="inline-edit description-edit inventory-manual-edit" type="text" maxlength="240" placeholder="Agregar descripción…" title="Descripción manual. Se guarda automáticamente al salir del campo." aria-label="Descripción manual de la impresora" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
+          return '<td class="inventory-description-cell"><input class="inline-edit description-edit inventory-manual-edit" type="text" maxlength="240" placeholder="Agregar descripción…" title="Descripción manual. Se guarda automáticamente al salir del campo." aria-label="Descripción manual de la impresora" value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
         }
         return '<td>'+escapeHtml(value||'—')+'</td>';
       }
       if(col.id==='serial'){
         const value=printerSerialValue(r);
-        if(canEditPrinterDescription())return '<td><input class="inline-edit serial-edit inventory-manual-edit" type="text" maxlength="160" placeholder="Serie de fábrica…" title="Número de serie físico. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
+        if(canEditPrinterDescription())return '<td><input class="inline-edit serial-edit inventory-manual-edit" type="text" maxlength="160" placeholder="Serie de fábrica…" title="Número de serie físico. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
         return '<td>'+escapeHtml(value||'—')+'</td>';
       }
       if(col.id==='city'){
         const value=String(r.city??'');
-        if(canEditPrinterDescription())return '<td><input class="inline-edit inventory-manual-edit" type="text" maxlength="120" placeholder="Ciudad…" title="Ciudad manual. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="city" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter"){event.preventDefault();this.blur();}"></td>';
+        if(canEditPrinterDescription())return '<td><input class="inline-edit inventory-manual-edit" type="text" maxlength="120" placeholder="Ciudad…" title="Ciudad manual. Se guarda al salir del campo." value="'+escapeHtml(value)+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="city" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
         return '<td>'+escapeHtml(value||'—')+'</td>';
       }
       if(INVENTORY_METADATA_EDITORS[col.id]){
