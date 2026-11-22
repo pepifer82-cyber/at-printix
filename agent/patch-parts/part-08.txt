@@ -1,0 +1,87 @@
++        store.Save(settings);
++
++        var raw = File.ReadAllText(file);
++        Assert.Contains("\"agent_token\": \"dpapi:", raw);
++        Assert.DoesNotContain("agent-token-test-secret", raw);
++        Assert.Equal("agent-token-test-secret", settings.AgentToken);
++        Assert.Equal("agent-token-test-secret", store.Load().AgentToken);
+     }
+ 
+     [Fact]
+--- a/agent-v0.5.3/tests/AgentCore.Tests/DiscoveryTests.cs
++++ b/agent-v0.5.3/tests/AgentCore.Tests/DiscoveryTests.cs
+@@ -98,6 +98,13 @@
+     [InlineData("Microsoft Print to PDF", true)]
+     [InlineData("Fax", true)]
+     [InlineData("Microsoft XPS Document Writer", true)]
++    [InlineData("Foxit PDF Editor Printer", true)]
++    [InlineData("Print to Evernote", true)]
++    [InlineData("Adobe PDF", true)]
++    [InlineData("FOXIT_PDF:", true)]
++    [InlineData("NUL:", true)]
++    [InlineData("FILE:", true)]
++    [InlineData("HP OfficeJet Pro 7740 series Fax", false)]
+     [InlineData("Ricoh SP 5300DN", false)]
+     [InlineData("Pantum M6500", false)]
+     public void Filtra_impresoras_virtuales(string name, bool expected)
+--- a/agent-v0.5.3/tests/AgentCore.Tests/RemoteUpdaterVersionTests.cs
++++ b/agent-v0.5.3/tests/AgentCore.Tests/RemoteUpdaterVersionTests.cs
+@@ -13,6 +13,14 @@
+         => Assert.Equal(new Version(expected), RemoteUpdater.ParseVersion(tag));
+ 
+     [Theory]
++    [InlineData("0.5.4", true)]
++    [InlineData("0.5.3", true)]
++    [InlineData("1.2.3", true)]
++    [InlineData("0.0.0", false)]
++    public void Acepta_versiones_publicadas_0x(string rawVersion, bool expected)
++        => Assert.Equal(expected, RemoteUpdater.IsSupportedReleaseVersion(Version.Parse(rawVersion)));
++
++    [Theory]
+     [InlineData("sin version")]
+     [InlineData("")]
+     [InlineData(null)]
+--- a/agent-v0.5.3/tests/AgentCore.Tests/SnapshotMappingTests.cs
++++ b/agent-v0.5.3/tests/AgentCore.Tests/SnapshotMappingTests.cs
+@@ -58,6 +58,7 @@
+             UsbPortName = "USB001",
+             WindowsPortName = "USB001",
+             Serial = "CNB1A2B3C4",
++            MacAddress = "00:11:22:33:44:55",
+             TotalPages = 7,
+             ScannerUnits = 1
+         };
+@@ -67,12 +68,33 @@
+         Assert.Contains("\"printer_key\"", json);
+         Assert.Contains("\"display_name\"", json);
+         Assert.Contains("\"serial_number\":\"CNB1A2B3C4\"", json);
++        Assert.Contains("\"mac_address\":\"00:11:22:33:44:55\"", json);
+         Assert.Contains("\"total_print_count\":7", json);
+         Assert.Contains("\"page_count\":7", json);
+         Assert.Contains("\"scanner_count\":1", json);
+         Assert.Contains("\"connection_type\":\"usb\"", json);
+         Assert.Contains("\"observed_at\"", json);
+         Assert.DoesNotContain("\"Serial\"", json);
++    }
++
++    [Fact]
++    public void Los_paquetes_de_sincronizacion_y_poll_incluyen_token_por_instalacion()
++    {
++        var sync = JsonSerializer.Serialize(new SyncEnvelope
++        {
++            Serial = "AT-TEST-SERIAL-123456",
++            InstallId = "e3c4cb6b-2368-4ec2-9a11-12f19e790b5a",
++            AgentToken = "agent-token-test"
++        });
++        var poll = JsonSerializer.Serialize(new CommandPollRequest
++        {
++            Serial = "AT-TEST-SERIAL-123456",
++            InstallId = "e3c4cb6b-2368-4ec2-9a11-12f19e790b5a",
++            AgentToken = "agent-token-test"
++        });
++
++        Assert.Contains("\"agent_token\":\"agent-token-test\"", sync);
++        Assert.Contains("\"agent_token\":\"agent-token-test\"", poll);
+     }
+ 
+     [Fact]
