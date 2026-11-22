@@ -70,7 +70,7 @@ jobs:
           }
           $patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLower()
           Write-Host "Reconstructed patch SHA256: $patchHash"
-          $expectedPatchHash = '1c043d733110f3ac9a7e597ac598250379e90ec58b6de5419cce602cd05ed31c'
+          $expectedPatchHash = '1ee1be7dc4525ce712908b2470578051555ae6663a2fbafd70889c404b755e6d'
           if ($patchHash -ne $expectedPatchHash) { throw 'Reconstructed patch hash mismatch.' }
           git -C $env:SOURCE_ROOT apply --check -p2 $patch
           if ($LASTEXITCODE -ne 0) { throw 'Patch validation failed.' }
