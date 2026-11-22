@@ -1,0 +1,28 @@
+name: Recover A&T Printer Agent source
+on:
+  push:
+    branches:
+      - agent-rebuild/source-recovery
+    paths:
+      - .github/workflows/recover-agent-source.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  retrieve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download published 0.5.3 source
+        run: |
+          curl --fail --location --retry 3 \
+            "https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.3/agent-v0.5.3-source.zip" \
+            --output agent-v0.5.3-source.zip
+          echo "cf15688c17042b3f7eebfb57ca96f7e44f794882c4d33eb3eb2afdee0f9ec818  agent-v0.5.3-source.zip" | sha256sum --check
+      - name: Upload source archive for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: at-printix-agent-0.5.3-source
+          path: agent-v0.5.3-source.zip
+          if-no-files-found: error
+          retention-days: 7
