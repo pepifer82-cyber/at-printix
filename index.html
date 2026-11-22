@@ -1577,6 +1577,7 @@ async function login(){
 }
 async function logout(){stopRenewalRequestWatch();try{await api('/auth/v1/logout',{method:'POST'})}catch{}clearSession();location.reload()}
 let accountEntitlements=null;
+let currentProjectMemberRole='',currentProjectMemberRoleId='';
 async function loadApp(){
   if(!token())return false;
 
@@ -2060,10 +2061,21 @@ function openGlobalPrinterActions(projectId,printerId,printerName,serial){
 
 async function loadProjectData(){
   if(!currentProjectId)return;
+  const loadingProjectId=String(currentProjectId);
+  currentProjectMemberRole='';
+  currentProjectMemberRoleId=loadingProjectId;
   try{
     const q='?select=*&project_id=eq.'+encodeURIComponent(currentProjectId)+'&order=last_seen_at.desc.nullslast';
-    rows=await api('/rest/v1/control_printer_dashboard'+q);rows=Array.isArray(rows)?rows.filter(isRealPrinter):[];
-    agentRows=await api('/rest/v1/printer_agents?select=id,agent_code,machine_name,windows_user,app_version,active,last_seen_at,remote_config&project_id=eq.'+encodeURIComponent(currentProjectId)+'&order=last_seen_at.desc.nullslast');agentRows=Array.isArray(agentRows)?agentRows:[];
+    const projectMemberUrl='/rest/v1/control_project_members?select=role&project_id=eq.'+encodeURIComponent(currentProjectId)+'&user_id=eq.'+encodeURIComponent(currentUser?.id||'')+'&active=eq.true';
+    const [printerResult,agentResult,projectMemberResult]=await Promise.all([
+      api('/rest/v1/control_printer_dashboard'+q),
+      api('/rest/v1/printer_agents?select=id,agent_code,machine_name,windows_user,app_version,active,last_seen_at,remote_config&project_id=eq.'+encodeURIComponent(currentProjectId)+'&order=last_seen_at.desc.nullslast'),
+      !isAdmin&&currentUser?.id?api(projectMemberUrl).catch(()=>[]):Promise.resolve([])
+    ]);
+    if(String(currentProjectId)!==loadingProjectId)return;
+    rows=Array.isArray(printerResult)?printerResult.filter(isRealPrinter):[];
+    agentRows=Array.isArray(agentResult)?agentResult:[];
+    currentProjectMemberRole=Array.isArray(projectMemberResult)?String(projectMemberResult[0]?.role||'').toLowerCase():'';
     renderAll();
     if(currentView==='seriales')await loadAllProjectSerials();
     if(currentView==='agentes')await loadGlobalAgents();
@@ -2729,7 +2741,9 @@ async function saveManualPrinterCounter(event){
 }
 
 function canEditPrinterDescription(){
-  return !!isAdmin||['owner','admin'].includes(String(accountEntitlements?.role||'').toLowerCase());
+  const companyRole=String(accountEntitlements?.role||'').toLowerCase();
+  const projectRole=String(currentProjectMemberRoleId)===String(currentProjectId)?currentProjectMemberRole:'';
+  return !!isAdmin||['owner','admin'].includes(companyRole)||['owner','admin'].includes(projectRole);
 }
 function openPrinterEditor(id){
   if(!canEditPrinterDescription()){atNotify('Solo el administrador o un usuario autorizado puede modificar los datos manuales de la impresora.','error');return}
