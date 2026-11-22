@@ -1,0 +1,239 @@
+name: Build A&T Printix Agent 0.5.7 — Silent startup (RC1) Silent RC1
+
+on:
+  push:
+    branches:
+      - agent/0.5.7-silent-build
+    paths:
+      - ".github/workflows/build-agent-v0.5.7.yml"
+      - "agent/patch-0.5.7/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout isolated build branch
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Download and verify 0.5.4 baseline source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.4/agent-v0.5.4-source.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "agent-v0.5.4-source.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "b419fac5c0fc6c565de2ef19882b4f229b3632490285eef646c9611ec4d7f09f"
+          if ($actual -ne $expected) { throw "Baseline SHA-256 mismatch: $actual" }
+          $root = Join-Path $env:GITHUB_WORKSPACE "agent-v0.5.7"
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $root -Force
+          "AGENT_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Baseline verified and extracted to $root"
+
+      - name: Reconstruct, verify and apply 0.5.7 source patch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $partsDir = Join-Path $env:GITHUB_WORKSPACE "agent/patch-0.5.6"
+          $names = @(
+            "part-01a.b64", "part-01b.b64",
+            "part-02.b64", "part-03.b64", "part-04.b64", "part-05.b64",
+            "part-06a.b64", "part-06b.b64",
+            "part-07.b64", "part-08.b64",
+            "part-09a.b64", "part-09b.b64"
+          )
+          $encoded = ""
+          foreach ($name in $names) {
+            $path = Join-Path $partsDir $name
+            if (-not (Test-Path $path)) { throw "Missing patch chunk: $name" }
+            $encoded += [IO.File]::ReadAllText($path, [Text.Encoding]::ASCII).Trim()
+          }
+          $bytes = [Convert]::FromBase64String($encoded)
+          $gzip = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch.gz"
+          [IO.File]::WriteAllBytes($gzip, $bytes)
+          $gzipHash = (Get-FileHash $gzip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedGzipHash = "68bbe238bcae56ff345f94130ba7c51e690eecc67aaef135f10054c4bc72a60d"
+          if ($gzipHash -ne $expectedGzipHash) { throw "Patch gzip SHA-256 mismatch: $gzipHash" }
+          $patch = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch"
+          $input = [IO.File]::OpenRead($gzip)
+          $decompressor = [IO.Compression.GZipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create($patch)
+          try { $decompressor.CopyTo($output) }
+          finally { $output.Dispose(); $decompressor.Dispose(); $input.Dispose() }
+          $patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Host "Patch verified. SHA-256: $patchHash"
+          git -C $env:GITHUB_WORKSPACE apply --check -p1 $patch
+          if ($LASTEXITCODE -ne 0) { throw "Patch does not apply cleanly to the verified baseline." }
+          git -C $env:GITHUB_WORKSPACE apply -p1 $patch
+          if ($LASTEXITCODE -ne 0) { throw "Could not apply source patch." }
+          if (-not (Test-Path (Join-Path $env:AGENT_ROOT "InstallerMsi/ATPrintixAgentMsi.wixproj"))) {
+            throw "MSI project missing after patch."
+          }
+          Write-Host "0.5.7 source patch applied."
+
+
+      - name: Reconstruct, verify and apply 0.5.7 silent-startup patch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $partsDir = Join-Path $env:GITHUB_WORKSPACE "agent/patch-0.5.7"
+          $path = Join-Path $partsDir "part-01.b64"
+          if (-not (Test-Path $path)) { throw "Missing 0.5.7 patch chunk: part-01.b64" }
+          $encoded = [IO.File]::ReadAllText($path, [Text.Encoding]::ASCII).Trim()
+          $bytes = [Convert]::FromBase64String($encoded)
+          $gzip = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch.gz"
+          [IO.File]::WriteAllBytes($gzip, $bytes)
+          $gzipHash = (Get-FileHash $gzip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedGzipHash = "592d928f01c5d69dad418925a36ff62b01596d9c63e65bfe4fcd5a9cabdac719"
+          if ($gzipHash -ne $expectedGzipHash) { throw "0.5.7 patch gzip SHA-256 mismatch: $gzipHash" }
+          $patch = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch"
+          $input = [IO.File]::OpenRead($gzip)
+          $decompressor = [IO.Compression.GZipStream]::new($input, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create($patch)
+          try { $decompressor.CopyTo($output) }
+          finally { $output.Dispose(); $decompressor.Dispose(); $input.Dispose() }
+          git -C $env:GITHUB_WORKSPACE apply --check -p1 $patch
+          if ($LASTEXITCODE -ne 0) { throw "0.5.7 patch does not apply cleanly to verified 0.5.6 source." }
+          git -C $env:GITHUB_WORKSPACE apply -p1 $patch
+          if ($LASTEXITCODE -ne 0) { throw "Could not apply 0.5.7 source patch." }
+          Write-Host "0.5.7 silent-startup patch verified and applied."
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $paths = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "$env:ChocolateyInstall\lib\innosetup\tools\ISCC.exe"
+          )
+          $iscc = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            $whereResult = & where.exe ISCC.exe 2>$null
+            if ($LASTEXITCODE -eq 0 -and $whereResult) {
+              $iscc = $whereResult | Select-Object -First 1
+            }
+          }
+          if (-not $iscc) {
+            choco install innosetup --yes --no-progress --force
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+            $iscc = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $iscc) {
+            throw "Inno Setup 6 ISCC.exe was not found. Checked: $($paths -join '; ')"
+          }
+          Write-Host "Using Inno Setup compiler: $iscc"
+          "INNO_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Make verifier compatible with unsigned CI runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $path = Join-Path $env:AGENT_ROOT "verify-build.ps1"
+          $text = [IO.File]::ReadAllText($path)
+          $signatureNeedle = '$status = (Get-AuthenticodeSignature $file).Status'
+          if (-not $text.Contains($signatureNeedle)) { throw "Authenticode signature line not found in verify-build.ps1." }
+          $text = $text.Replace($signatureNeedle, '$status = "NotSigned"')
+          $hashNeedle = '$hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()'
+          if (-not $text.Contains($hashNeedle)) { throw "SHA-256 line not found in verify-build.ps1." }
+          $hashReplacement = @'
+          $sha = [Security.Cryptography.SHA256]::Create()
+          try {
+              $hash = [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($installer))).Replace('-', '').ToLowerInvariant()
+          } finally { $sha.Dispose() }
+          '@
+          $text = $text.Replace($hashNeedle, $hashReplacement.Trim())
+          [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($true))
+          Write-Host "CI verifier adjusted: unsigned status only; SHA-256 uses .NET built-in crypto."
+
+      - name: Run automated tests and build universal EXE installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:AGENT_ROOT
+          $env:AT_SKIP_SIGNING = "1"
+          & (Join-Path $env:AGENT_ROOT "build.bat")
+          if ($LASTEXITCODE -ne 0) { throw "build.bat failed with exit code $LASTEXITCODE" }
+          $exe = Join-Path $env:AGENT_ROOT "Instalar_ATPrinterAgent_v0.5.7.exe"
+          if (-not (Test-Path $exe)) { throw "Universal EXE installer was not produced." }
+
+      - name: Build x86 MSI (compatible with 32-bit and 64-bit Windows)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $wxs = Join-Path $env:AGENT_ROOT "InstallerMsi/Package.wxs"
+          $source = [IO.File]::ReadAllText($wxs)
+          $machineKey = 'RegistryValue Root="HKLM" Key="Software\A&amp;T Informatica\A&amp;T Printix Agent"'
+          if (-not $source.Contains($machineKey)) { throw "MSI shortcut registry key not found in Package.wxs." }
+          $source = $source.Replace($machineKey, 'RegistryValue Root="HKCU" Key="Software\A&amp;T Informatica\A&amp;T Printix Agent"')
+          [IO.File]::WriteAllText($wxs, $source, [Text.UTF8Encoding]::new($false))
+          Write-Host "MSI shortcut KeyPath changed to HKCU to match the per-user Start Menu component."
+          $project = Join-Path $env:AGENT_ROOT "InstallerMsi/ATPrintixAgentMsi.wixproj"
+          dotnet build $project -c Release --nologo
+          if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed with exit code $LASTEXITCODE" }
+          $candidates = Get-ChildItem (Join-Path $env:AGENT_ROOT "InstallerMsi/bin") -Recurse -File -Filter "AT_Printix_Agent_0.5.7.msi"
+          $msi = $candidates | Select-Object -First 1
+          if (-not $msi) { throw "MSI output not found." }
+          Copy-Item $msi.FullName (Join-Path $env:AGENT_ROOT "AT_Printix_Agent_0.5.7.msi") -Force
+
+      - name: Verify both installers and create SHA-256 manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = Join-Path $env:AGENT_ROOT "Instalar_ATPrinterAgent_v0.5.7.exe"
+          $msi = Join-Path $env:AGENT_ROOT "AT_Printix_Agent_0.5.7.msi"
+          foreach ($file in @($exe, $msi)) {
+            if (-not (Test-Path $file)) { throw "Missing installer: $file" }
+            if ((Get-Item $file).Length -lt 50000) { throw "Installer unexpectedly small: $file" }
+          }
+          $lines = @()
+          foreach ($file in @($exe, $msi)) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            $lines += "$hash  $(Split-Path -Leaf $file)"
+            Write-Host "$hash  $(Split-Path -Leaf $file)"
+          }
+          $lines += ""
+          $lines += "EXE: installs the native x86 or x64 agent based on Windows architecture."
+          $lines += "MSI: x86 package; installs the x86 agent on both x86 and x64 Windows."
+          $lines += "Digital signature: NotSigned (A&T private signing certificate was not available to CI)."
+          $lines | Set-Content (Join-Path $env:AGENT_ROOT "SHA256_INSTALLERS.txt") -Encoding ASCII
+
+      - name: Upload verified installers as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AandT-Printix-Agent-0.5.7-SILENT-RC1
+          if-no-files-found: error
+          path: |
+            agent-v0.5.7/Instalar_ATPrinterAgent_v0.5.7.exe
+            agent-v0.5.7/AT_Printix_Agent_0.5.7.msi
+            agent-v0.5.7/SHA256_INSTALLERS.txt
+          retention-days: 30
+
+      - name: Publish release from this isolated branch
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "agent-v0.5.7-silent-rc1"
+          $exe = Join-Path $env:AGENT_ROOT "Instalar_ATPrinterAgent_v0.5.7.exe"
+          $msi = Join-Path $env:AGENT_ROOT "AT_Printix_Agent_0.5.7.msi"
+          $hashes = Join-Path $env:AGENT_ROOT "SHA256_INSTALLERS.txt"
+          gh release view $tag --repo pepifer82-cyber/at-printix *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $exe $msi $hashes --repo pepifer82-cyber/at-printix --clobber
+          } else {
+            gh release create $tag $exe $msi $hashes --repo pepifer82-cyber/at-printix --title "A&T Printix Agent 0.5.7 — Silent startup (RC1)" --prerelease --notes "Candidate 0.5.7: silent startup, tray-only UI, cached inventory restore and one-shot initial discovery. Requires physical Windows validation before promotion to stable. EXE selects native x86/x64. MSI is x86 and works on x86/x64 Windows. Unsigned: A&T private code-signing certificate was not available to the build runner." --prerelease --target $env:GITHUB_SHA
+          }
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release upload/create failed." }
