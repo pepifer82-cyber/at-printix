@@ -1,1 +1,1 @@
-Validate patch by applying it against the exact official 0.5.3 source; stop if git apply check reports conflicts.
+Rebuild with Windows CRLF-to-LF normalization for exact patch SHA-256 verification.
