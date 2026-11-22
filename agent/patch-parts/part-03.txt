@@ -12,13 +12,13 @@
 +
 +      if MsgBox('Se detectó una instalación anterior de A&T Printer Agent o datos de una versión previa:' + #13#10 #13#10 +
 +                details + #13#10 +
-+                '¿Desinstalar las versiones anteriores y borrar sus activaciones/configuraciones antes de instalar A&T Printer Agent 0.5.4?' + #13#10 #13#10 +
-+                'Sí: desinstala los agentes A&T anteriores y deja esta instalación completamente limpia. Después deberás ingresar manualmente el serial del proyecto.' + #13#10 +
++                '¿Desintalar las versiones anteriores y borrar sus activaciones/configuraciones antes de instalar A&T Printer Agent 0.5.4?' + #13#10 #13#10 +
++                'Sé: desinstala los agentes A&T anteriores y deja esta instalación completamente limpia. Después deberás ingresar manualmente el serial del proyecto.' + #13#10 +
 +                'No: cancela la instalación sin modificar nada.',
 +                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
 +        FullCleanRequested := True
 +      else
-       begin
+        begin
 -        for i := 0 to List.Count - 1 do
 -        begin
 -          item := List[i];
@@ -92,7 +92,7 @@
 +  WipeAgentArtifacts(False);
  end;
  
- procedure CurStepChanged(CurStep);
+ procedure CurStepChanged(CurStep: TSetupStep);
 --- a/agent-v0.5.3/README.txt
 +++ b/agent-v0.5.3/README.txt
 @@ -1,4 +1,4 @@
