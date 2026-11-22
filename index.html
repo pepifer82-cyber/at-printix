@@ -3159,7 +3159,7 @@ function printerModelRaw(r){
   const candidates=[r?.model,r?.windows_printer_name,r?.display_name,r?.printer_name,r?.name,r?.printer];
   for(const value of candidates){
     let name=String(value||'').replace(/&#x20;|&nbsp;/gi,' ').replace(/^#+\s*/,'').trim();
-    if(!name||isPrinterTransportValue(name))continue;
+    if(!name||isPrinterTransportValue(name)||/^(?:—|-|ver ficha)$/i.test(name))continue;
     return name;
   }
   return '';
@@ -4573,9 +4573,10 @@ function aggregateCounterPeriodRows(dailyRows){
     const key=serial?'serial:'+serial:(ip?'ip:'+ip:'id:'+String(r.printer_id));
     let item=groups.get(key);
     if(!item){
+      const cleanModel=printerInventoryLabel(r);
       item={
-        project_name:projectName,printer_id:r.printer_id,printer:r.model||r.printer||'—',
-        ip_address:r.ip_address||'',manufacturer:r.manufacturer||'',model:r.model||'',
+        project_name:projectName,printer_id:r.printer_id,printer:cleanModel==='Ver ficha'?'—':cleanModel,
+        ip_address:r.ip_address||'',manufacturer:r.manufacturer||'',model:cleanModel==='Ver ficha'?'':cleanModel,
         serial_number:r.serial_number||'',reference:r.reference||r.asset_reference||r.asset_tag||'',location:r.location||r.city||r.description||r.address||'',first_reading_at:null,last_reading_at:null,
         first_page_count:null,last_page_count:null,total_general_pages:null,total_black_pages:null,total_color_pages:null,
         first_scanner_count:null,last_scanner_count:null,total_scans:null,
@@ -4590,7 +4591,13 @@ function aggregateCounterPeriodRows(dailyRows){
     if(!item.reference)item.reference=r.reference||r.asset_reference||r.asset_tag||'';
     if(!item.location)item.location=r.location||r.city||r.description||r.address||'';
     if(!item.manufacturer&&r.manufacturer)item.manufacturer=r.manufacturer;
-    if(!item.model&&r.model)item.model=r.model;
+    if(!item.model){
+      const cleanModel=printerInventoryLabel(r);
+      if(cleanModel!=='Ver ficha'){
+        item.model=cleanModel;
+        if(!item.printer||item.printer==='—')item.printer=cleanModel;
+      }
+    }
     item.reading_count+=Number(r.reading_count||0);
     item.reading_days+=1;
     const firstTs=r.first_reading_at?new Date(r.first_reading_at).getTime():NaN;
