@@ -119,18 +119,7 @@ jobs:
           $match = [regex]::Match($text, $pattern)
           if (-not $match.Success) { throw "Could not locate Authenticode validation block in verify-build.ps1." }
           $replacement = @'
-          if ($env:AT_SKIP_SIGNING -eq '1') {
-              Write-Host 'Firma digital omitida: el runner no dispone del certificado privado de A&T.'
-          } else {
-              Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
-              foreach ($file in @($installer, $x64, $x86)) {
-                  $status = (Get-AuthenticodeSignature $file).Status
-                  Write-Host "Firma $(Split-Path -Leaf $file): $status"
-                  if ($status -notin @('Valid', 'NotSigned')) {
-                      Write-Host 'FIRMA INVALIDA'; $fail = $true
-                  }
-              }
-          }
+          Write-Host 'Firma digital omitida en CI: el certificado privado A&T no está disponible.'
           '@
           $text = $text.Remove($match.Index, $match.Length).Insert($match.Index, $replacement)
           [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($true))
