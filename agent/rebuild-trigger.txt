@@ -1,1 +1,1 @@
-Use verified non-installer patch and apply the dedicated Inno Setup clean-install script.
+Rebuild clean installer using separately tested Inno Setup lifecycle script and validated agent code patch.
