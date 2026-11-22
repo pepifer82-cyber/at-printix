@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib, re, subprocess, sys, zipfile
+import gzip, hashlib, re, subprocess, sys, zipfile
 
 workspace = Path.cwd()
 source_root = workspace / "agent-v0.5.3"
@@ -53,6 +53,44 @@ theme_source = workspace / "agent" / "rebuild" / "ModernTheme.cs"
 theme_target = source_root / "src" / "UI" / "ModernTheme.cs"
 theme_target.write_text(theme_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
 
+# Embed the A&T Printix brand icon in the executable, installer and tray.
+icon_archive = workspace / "agent" / "rebuild" / "AT_Printix_Agent_Icon.ico.gz"
+if not icon_archive.exists():
+    raise SystemExit("Falta el icono comprimido A&T Printix del agente.")
+with gzip.open(icon_archive, "rb") as stream:
+    icon_bytes = stream.read()
+if not icon_bytes.startswith(b"\x00\x00\x01\x00"):
+    raise SystemExit("El recurso recibido no es un archivo ICO válido.")
+resources = source_root / "src" / "Resources"
+resources.mkdir(parents=True, exist_ok=True)
+icon_target = resources / "AT_Printix_Agent_Icon.ico"
+icon_target.write_bytes(icon_bytes)
+
+project_file = source_root / "src" / "ATPrinterAgent.csproj"
+project_text = project_file.read_text(encoding="utf-8-sig")
+if "<ApplicationIcon>" not in project_text:
+    project_text, count = re.subn(
+        r"(<PropertyGroup(?:\s[^>]*)?>)",
+        r"\1\n    <ApplicationIcon>Resources\\AT_Printix_Agent_Icon.ico</ApplicationIcon>",
+        project_text,
+        count=1,
+    )
+    if count != 1:
+        raise SystemExit("No se pudo registrar el icono en ATPrinterAgent.csproj.")
+project_file.write_text(project_text, encoding="utf-8-sig", newline="\n")
+
+if "SetupIconFile=" not in text:
+    marker = "WizardStyle=modern"
+    if marker not in text:
+        raise SystemExit("No se encontró WizardStyle para configurar el icono del instalador.")
+    text = text.replace(
+        marker,
+        marker + "\nSetupIconFile=src\\Resources\\AT_Printix_Agent_Icon.ico",
+        1,
+    )
+iss.write_text(text, encoding="utf-8-sig", newline="\n")
+
+
 main_form = source_root / "src" / "UI" / "MainForm.cs"
 mf = main_form.read_text(encoding="utf-8-sig")
 needle = "        BuildTray();\n\n        _runtime.StatusChanged"
@@ -83,6 +121,7 @@ notes = """## A&T Printix Agent 0.5.5 — Futuristic Edition
 
 ### Interfaz
 - Nueva identidad A&T Printix con interfaz oscura premium y acentos cian.
+- Icono oficial en el EXE, instalador y bandeja de Windows.
 - Alternancia entre modo oscuro y modo claro.
 - Inventario y controles con contraste, espaciado y tipografía renovados.
 - La bandeja del sistema, el arranque discreto y el comportamiento de cierre se conservan.

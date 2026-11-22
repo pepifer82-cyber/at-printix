@@ -12,6 +12,28 @@ internal static class ModernTheme
 
     public static void Apply(Form form)
     {
+        // Reuse the embedded executable icon in the app window and notification tray.
+        // Loading the icon is deliberately non-fatal to printer monitoring.
+        try
+        {
+            var agentIcon = System.Drawing.Icon.ExtractAssociatedIcon(
+                System.Windows.Forms.Application.ExecutablePath)
+                ?? System.Drawing.SystemIcons.Application;
+            form.Icon = agentIcon;
+
+            foreach (var field in form.GetType().GetFields(
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic))
+            {
+                if (field.GetValue(form) is System.Windows.Forms.NotifyIcon tray)
+                    tray.Icon = agentIcon;
+            }
+        }
+        catch
+        {
+            // Keep the agent running even if Windows cannot load the app icon.
+        }
         form.Text = "A&T Printix | Smart Printer Control";
         form.ClientSize = new Size(1220, 790);
         form.MinimumSize = new Size(1080, 690);
