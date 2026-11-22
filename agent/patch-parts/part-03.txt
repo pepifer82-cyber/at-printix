@@ -1,112 +1,100 @@
-ora no reporta numero de serie, se sincroniza igual con
-   serial vacio: nunca se inventan datos.
- 
--Novedades 0.5.3:
-+Novedades 0.5.4:
- - El desinstalador borra todo: programa, accesos directos, tarea programada,
-   arranque automatico, cache de actualizaciones y configuracion/activacion de
-   todos los usuarios del equipo.
--- Instalacion limpia opcional sobre una version existente: el instalador
--  pregunta y, si se acepta, borra la activacion y la configuracion previas.
--- Tambien se puede forzar con: Instalar_ATPrinterAgent_v0.5.3.exe /FULLCLEAN
--- Las actualizaciones silenciosas (panel o "Buscar actualizaciones") siguen
--  conservando la activacion; solo la desinstalacion manual borra todo.
-+- Instalacion limpia obligatoria al detectar versiones anteriores: el instalador
-+  pregunta primero. Si aceptas, desinstala los agentes A&T detectados y elimina
-+  activacion/configuracion/caché local de todos los perfiles Windows. Si respondes
-+  No, cancela sin modificar nada.
-+- La instalacion limpia no borra proyectos, seriales registrados ni impresoras
-+  historicas de Supabase. El serial del proyecto NO viene incluido en el EXE.
-+- Al abrir por primera vez, la pantalla de activacion queda vacia: pega el serial
-+  correspondiente al proyecto y pulsa "Activar serial".
-+- Las actualizaciones silenciosas iniciadas desde el panel conservan la activacion
-+  y la configuracion; no se consideran una nueva instalacion manual.
- - El instalador solo retira agentes de A&T, nunca agentes de otros fabricantes.
-+- Se transmite la MAC real detectada y se protege con DPAPI el token remoto propio
-+  de cada instalacion, necesario para recibir comandos individuales del panel.
-+- Se corrige el canal de actualizaciones para consultar los lanzamientos de
-+  pepifer82-cyber/at-printix y aceptar versiones 0.5.x.
- 
- Novedades 0.5.2:
- - Serie: se prueban el objeto estandar (Printer-MIB) y 18 OIDs de fabricante,
-@@ -32,7 +41,7 @@
-   (walk SNMP) cuando el equipo la publica fuera de los indices habituales.
- 
- Instalacion:
--1. Ejecutar Instalar_ATPrinterAgent_v0.5.3.exe como administrador.
-+1. Ejecutar Instalar_ATPrinterAgent_v0.5.4.exe como administrador.
- 2. Al abrirse la ventana, pegar el serial de activacion del panel y pulsar
-    "Activar".
- 3. El agente queda en la bandeja del sistema (junto al reloj) y arranca con
-@@ -42,15 +51,14 @@
- 
- Notas:
- - La activacion y la configuracion se guardan por usuario en
-   %LOCALAPPDATA%\ATPrinterAgent\config.json (protegida con DPAPI).
--- Si en la PC hay instalaciones anteriores del agente (0.4.x o previas), el
--  instalador las desinstala por completo, incluida su activacion, para que
--  esta version arranque limpia: se pega el serial nuevamente una sola vez.
-+- Al detectar instalaciones A&T anteriores (incluidas 0.4.x y 0.5.x), el instalador
-+  pregunta si debe desinstalarlas por completo. Aceptar limpia activacion/configuracion;
-+  rechazar cancela la instalacion. Despues se pega el serial nuevamente una sola vez.
- - Desinstalar: usar "Desinstalar A&T Printer Agent" del menu Inicio o
-   Configuracion > Aplicaciones. La desinstalacion manual borra tambien la
-   activacion, la configuracion y la cache de todos los usuarios.
--- Instalacion limpia sobre una version 0.5.x: responder "Si" a la pregunta del
--  instalador o ejecutarlo con /FULLCLEAN. Sin ese modo se conserva la
--  activacion para no pedir el serial en cada actualizacion.
-+- Las actualizaciones silenciosas del panel mantienen activacion y configuracion;
-+  la limpieza completa se ofrece en las instalaciones manuales del EXE nuevo.
- - Las actualizaciones se instalan solo cuando el panel envia "update_now"
-   o desde el boton manual "Buscar actualizaciones". Verificacion SHA-256
-   del instalador antes de ejecutarlo; las actualizaciones 0.5.x no tocan
---- a/agent-v0.5.3/build.bat
-+++ b/agent-v0.5.3/build.bat
-@@ -45,11 +45,11 @@
- )
- "%ISCC%" "AandTPrinterAgent.iss"
- if errorlevel 1 goto fail
--if not exist "Instalar_ATPrinterAgent_v0.5.3.exe" goto fail
-+if not exist "Instalar_ATPrinterAgent_v0.5.4.exe" goto fail
- 
- echo.
- echo === 6/7 Firmar instalador ===
--call sign.bat "Instalar_ATPrinterAgent_v0.5.3.exe"
-+call sign.bat "Instalar_ATPrinterAgent_v0.5.4.exe"
- if errorlevel 1 goto fail
- 
- echo.
---- a/agent-v0.5.3/sign.bat
-+++ b/agent-v0.5.3/sign.bat
-@@ -2,6 +2,12 @@
- rem Uso: sign.bat archivo1.exe [archivo2.exe ...]
- @echo off
- setlocal EnableExtensions
+-        msg := msg + '  - ' + Copy(item, 1, sep - 1) + #13#10;
++        if sep > 0 then details := details + '  - ' + Copy(item, 1, sep - 1) + #13#10;
+       end;
+-
+-      // Interactivo: preguntar. Silencioso (update remoto): desinstalar sin preguntar.
+-      if WizardSilent() or
+-         (MsgBox('Se detectaron instalaciones anteriores del agente:' #13#10 #13#10 +
+-                 msg + #13#10 +
+-                 '¿Desinstalarlas antes de continuar? Se eliminan por completo, incluida la activación anterior, para que la nueva instalación arranque limpia.',
+-                 mbConfirmation, MB_YESNO) = IDYES) then
++      if details = '' then details := '  - Datos/configuración residual de A&T detectados.' + #13#10;
 +
-+rem CI puede omitir firma cuando el certificado privado de A&T no esta disponible.
-+if /I "%AT_SKIP_SIGNING%"=="1" (
-+    echo AVISO: compilacion sin firma digital; se validara SHA-256.
-+    exit /b 0
-+)
++      if MsgBox('Se detectó una instalación anterior de A&T Printer Agent o datos de una versión previa:' + #13#10 #13#10 +
++                details + #13#10 +
++                '¿Desinstalar las versiones anteriores y borrar sus activaciones/configuraciones antes de instalar A&T Printer Agent 0.5.4?' + #13#10 #13#10 +
++                'Sí: desinstala los agentes A&T anteriores y deja esta instalación completamente limpia. Después deberás ingresar manualmente el serial del proyecto.' + #13#10 +
++                'No: cancela la instalación sin modificar nada.',
++                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
++        FullCleanRequested := True
++      else
+       begin
+-        for i := 0 to List.Count - 1 do
+-        begin
+-          item := List[i];
+-          sep := Pos('|', item);
+-          un := Copy(item, sep + 1, Length(item));
+-          path := StripOuterQuotes(un);
+-          if path <> '' then
+-          begin
+-            Exec(path, '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES', '',
+-                 SW_SHOW, ewWaitUntilTerminated, rcode);
+-            LegacyRemoved := True;
+-          end;
+-        end;
+-
+-        // Datos de 0.4.x, arranque automatico y restos compartidos.
+-        WipeAgentArtifacts(True);
++        Result := False;
++        Exit;
+       end;
+     end;
+   finally
+     List.Free;
+   end;
++
++  Result := True;
++end;
++
++function PrepareToInstall(var NeedsRestart: Boolean): String;
++var
++  List: TStringList;
++  i, sep, rcode: Integer;
++  item, un, path: String;
++  launched: Boolean;
++begin
++  Result := '';
++  if not FullCleanRequested then Exit;
++
++  List := TStringList.Create;
++  try
++    List.Sorted := True;
++    List.Duplicates := dupIgnore;
++    ScanPreviousAandT(HKEY_LOCAL_MACHINE, List);
++    ScanPreviousAandT(HKEY_CURRENT_USER, List);
++
++    // Retira cada desinstalador registrado de A&T, incluido el AppId de la linea 0.5.x.
++    for i := 0 to List.Count - 1 do
++    begin
++      item := List[i];
++      sep := Pos('|', item);
++      if sep <= 0 then Continue;
++      un := Copy(item, sep + 1, Length(item));
++      path := StripOuterQuotes(un);
++      if path = '' then Continue;
++
++      launched := Exec(path, '/VERYSILENT /FULLCLEAN /NORESTART /SUPPRESSMSGBOXES',
++                       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++      if (not launched) or (rcode <> 0) then
++      begin
++        Result := 'No se pudo desinstalar la versión anterior de A&T (' + Copy(item, 1, sep - 1) + '). Código: ' + IntToStr(rcode) + '. La instalación nueva se canceló para evitar mezclar archivos.';
++        Exit;
++      end;
++    end;
++  finally
++    List.Free;
++  end;
++
++  // Cierra cualquier proceso residual y borra TODOS los datos locales A&T
++  // en los perfiles Windows. No se toca el proyecto ni las licencias de Supabase.
++  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM ATPrinterAgent.exe /T /F',
++       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++  WipeAgentArtifacts(False);
+ end;
  
- set "SIGN_CERT=75C7562D86E421F53F4E3CF2060F61599A7B360B"
- set "SIGNTOOL="
---- a/agent-v0.5.3/src/ATPrinterAgent.csproj
-+++ b/agent-v0.5.3/src/ATPrinterAgent.csproj
+ procedure CurStepChanged(CurStep);
+--- a/agent-v0.5.3/README.txt
++++ b/agent-v0.5.3/README.txt
 @@ -1,4 +1,4 @@
--﻿<Project Sdk="Microsoft.NET.Sdk">
-+<Project Sdk="Microsoft.NET.Sdk">
-   <PropertyGroup>
-     <OutputType>WinExe</OutputType>
-     <TargetFramework>net8.0-windows</TargetFramework>
-   </PropertyGroup>
-   <PropertyGroup>
-     <AssemblyName>ATPrinterAgent</AssemblyName>
-     <RootNamespace>AandT.Agent</RootNamespace>
-     <ApplicationTitle>A&amp;T Printer Agent</ApplicationTitle>
--    <Version>0.5.3</Version>
--    <AssemblyVersion>0.5.3.0</AssemblyVersion>
--    <FileVersion>0.5.3.0</FileVersion>
--    <InformationalVersion>0.5.3</InformationalVersion>
-+    <Version>0.5.4</Version>
-+    <AssemblyVersion>0.5.4.0</AssemblyVersion>
+-﻿A&T Printer Agent 0.5.3
++﻿A&T Printer Agent 0.5.4
