@@ -31,7 +31,7 @@
 +        begin
 +          Result := True;
 +          Exit;
-+        end
++        end;
  end;
  
  function CurrentInstallVersion(): String;
@@ -98,4 +98,3 @@
        begin
          item := List[i];
          sep := Pos('|', item);
--        msg := msg + '  - ' + Copy(item, 1, sep - 1) + #13#10;
