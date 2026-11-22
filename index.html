@@ -2966,26 +2966,22 @@ function printerFamilyKey(r){
 }
 
 function printerIdentityKey(r){
-  const serial=String(r?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const serial=printerSerialIdentityKey(r);
   if(serial)return 'serial:'+serial;
-  const mac=String(r?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
-  if(mac.length===12)return 'mac:'+mac;
+  const mac=printerMacIdentityKey(r);
+  if(mac)return 'mac:'+mac;
   const ip=realIpOf(r);
   if(ip)return 'ip:'+ip.toLowerCase();
 
-  const connection=String(r?.connection_type||'').trim().toLowerCase();
   const agent=String(r?.agent_code||r?.agent_id||'').trim().toLowerCase();
-  const family=printerFamilyKey(r);
+  const usbDescriptor=printerUsbInstanceDescriptor(r);
+  if(usbDescriptor)return 'usb:'+agent+'|'+usbDescriptor.kind+':'+usbDescriptor.value;
+  const endpoint=String(r?.usb_port||r?.windows_port||r?.port_name||'').trim().toLowerCase();
+  if(printerTransportKind(r)==='usb'&&endpoint)return 'usb:'+agent+'|'+endpoint;
 
-  // USB sin IP se mantiene como equipo independiente.
-  if(connection.includes('usb')){
-    const usb=String(r?.usb_port||r?.windows_port||r?.display_name||'').trim().toLowerCase();
-    return 'usb:'+agent+'|'+usb;
-  }
-
-  // WSD / red sin IP puede ser un duplicado de una ficha de red
-  // que sí tiene la IP real; por eso se resuelve después en dedupePrinterRows().
-  return 'other:'+agent+'|'+family+'|'+String(r?.display_name||'').trim().toLowerCase();
+  // Sin serie, MAC, IP ni instancia/puerto confiable, el ID de registro
+  // mantiene la ficha separada; nunca se agrupa por el modelo o el nombre.
+  return 'record:'+String(r?.printer_id||r?.id||'sin-id');
 }
 
 
@@ -3205,7 +3201,7 @@ function samePhysicalTransportAlias(a,b){
 // Línea de producto (LaserJet vs OfficeJet, etc.): separa tecnologías de la
 // misma marca para no casar una LaserJet con una OfficeJet por solo la marca.
 function printerProductLine(r){
-  const raw=[r?.manufacturer,r?.model,r?.display_name,r?.windows_printer_name].filter(Boolean).join(' ').toLowerCase();
+  const raw=[r?.manufacturer,printerInventoryLabel(r)].filter(Boolean).join(' ').toLowerCase();
   const lines=['laserjet','imageclass','ecosys','pantum','brother hl','dcp','mfc','officejet','deskjet','designjet','pagewide','photosmart','envy','smart tank','smarttank','pixma','maxify','ecotank','workforce','laser','inkjet'];
   return lines.find(w=>raw.includes(w))||'';
 }
@@ -3232,7 +3228,7 @@ function sameProductLineAlias(usbRow,netRow){
   if(sa)return false; // con serial, decide el serial (pasos previos), no esta heurística
   const sb=String(netRow?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   const ma=printerPhysicalModelKey(usbRow),mb=printerPhysicalModelKey(netRow);
-  if(!ma||!mb)return false;
+  if(!ma||!mb||!sameStrongPrinterIdentity(usbRow,netRow))return false;
   if(ma.split('|')[0]!==mb.split('|')[0])return false; // misma marca
   const la=printerProductLine(usbRow),lb=printerProductLine(netRow);
   if(!la||!lb||la!==lb)return false;
