@@ -1,0 +1,1 @@
+Trigger isolated 0.5.6 build after replacing unsupported Get-FileHash with .NET SHA256 implementation.
