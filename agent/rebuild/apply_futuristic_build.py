@@ -64,6 +64,13 @@ main_form.write_text(mf, encoding="utf-8-sig", newline="\n")
 
 # Accurate release notes: this build retains the existing optional clean-install
 # prompt; accepting it removes old local A&T data, declining preserves settings.
+# Use the verifier matching the 0.5.4 installer name and version.
+verifier_source = workspace / "agent" / "verify-build.ps1"
+verifier_target = source_root / "verify-build.ps1"
+if not verifier_source.exists():
+    raise SystemExit("Falta agent/verify-build.ps1 del repositorio.")
+verifier_target.write_text(verifier_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\\n")
+
 notes = """## A&T Printix Agent 0.5.4 — Futuristic Edition
 
 ### Interfaz
