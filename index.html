@@ -4204,6 +4204,8 @@ async function loadCounterHistory(showMessage=true){
         manufacturer:device.manufacturer||history.manufacturer||'',
         model:device.model||history.model||'',
         serial_number:history.serial_number||device.serial_number||'',
+        reference:history.reference||history.asset_reference||history.asset_tag||device.reference||device.asset_reference||device.asset_tag||'',
+        location:history.location||history.city||history.description||history.address||device.location||device.city||device.description||device.address||'',
         ip_address:realIpOf(device)||realIpOf(history)||'',
         mac_address:history.mac_address||device.mac_address||''
       });
@@ -4405,7 +4407,7 @@ function aggregateCounterPeriodRows(dailyRows){
       item={
         project_name:projectName,printer_id:r.printer_id,printer:r.model||r.printer||'—',
         ip_address:r.ip_address||'',manufacturer:r.manufacturer||'',model:r.model||'',
-        serial_number:r.serial_number||'',first_reading_at:null,last_reading_at:null,
+        serial_number:r.serial_number||'',reference:r.reference||r.asset_reference||r.asset_tag||'',location:r.location||r.city||r.description||r.address||'',first_reading_at:null,last_reading_at:null,
         first_page_count:null,last_page_count:null,total_general_pages:null,total_black_pages:null,total_color_pages:null,
         first_scanner_count:null,last_scanner_count:null,total_scans:null,
         first_copy_count:null,last_copy_count:null,total_copies:null,
@@ -4416,6 +4418,8 @@ function aggregateCounterPeriodRows(dailyRows){
     }
     if(!item.ip_address&&r.ip_address)item.ip_address=r.ip_address;
     if(!item.serial_number&&printerSerialValue(r))item.serial_number=printerSerialValue(r);
+    if(!item.reference)item.reference=r.reference||r.asset_reference||r.asset_tag||'';
+    if(!item.location)item.location=r.location||r.city||r.description||r.address||'';
     if(!item.manufacturer&&r.manufacturer)item.manufacturer=r.manufacturer;
     if(!item.model&&r.model)item.model=r.model;
     item.reading_count+=Number(r.reading_count||0);
@@ -4585,19 +4589,11 @@ function exportProjectExcel(){
   const retiredRows=dedupePrinterRows(rows.filter(isRetiredPrinterRecord));
   const offline=activeRows.filter(r=>printerState(r)==='offline');
   const wb=XLSX.utils.book_new();
-  const inventory=activeRows.map(r=>({
-    Impresora:r.display_name||'',
-    Descripción:r.description||'',
-    Ciudad:r.city||'',
-    Fabricante:r.manufacturer||'',
-    Modelo:r.model||'',
-    Conexión:r.connection_type||'',
-    'IP / Puerto':r.ip_address||r.windows_port||r.usb_port||'',
-    Serie:r.serial_number||'',
-    MAC:r.mac_address||'',
-    Estado:printerState(r)==='online'?'Conectada':printerState(r)==='offline'?'Desconectada':printerState(r)==='unknown'?'Sin verificar':'Deshabilitada',
-    Agente:r.agent_code||r.machine_name||''
-  }));
+  const inventory=activeRows.map(r=>Object.fromEntries(
+    INVENTORY_COLUMN_DEFS
+      .filter(col=>inventoryVisibleColumns.has(col.id)&&col.id!=='retire')
+      .map(col=>[col.label,col.value(r)])
+  ));
   const toner=activeRows.map(r=>({
     Impresora:r.display_name||'',
     'K Negro':r.toner_black_percent==null?'':Math.round(Number(r.toner_black_percent))+'%',
