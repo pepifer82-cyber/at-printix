@@ -2950,10 +2950,12 @@ function printerIpValue(r){
 function connectionLabel(r){
   const type=String(r?.connection_type||'').trim().toLowerCase();
   const portValues=[r?.windows_port,r?.usb_port,r?.port_name].filter(Boolean).map(String);
+  // PCL/PS/etc. son controladores, nunca puertos ni tipos de conexión.
+  const usablePorts=portValues.filter(port=>!/(?:PCL|POSTSCRIPT|\bPS\b|UFR|BR[- ]?SCRIPT|XPS|IPP CLASS)/i.test(port));
   if(/^(?:usb|usb\d{1,5})$/i.test(type))return 'USB';
   if(/^(?:net|network|red|ip|ethernet|wifi|wi-fi|wireless|tcp\s*\/?\s*ip|wsd)$/i.test(type))return 'NET';
-  if(portValues.some(port=>/^USB\d*$/i.test(port.trim())))return 'USB';
-  if(portValues.some(port=>/^(?:WSD|IP_|TCP|\\\\)/i.test(port.trim())))return 'NET';
+  if(usablePorts.some(port=>/^USB\d*$/i.test(port.trim())))return 'USB';
+  if(usablePorts.some(port=>/^(?:WSD|IP_|TCP|\\\\)/i.test(port.trim())))return 'NET';
   if(printerIpValue(r)||hasRealIp(r))return 'NET';
   if(/^(?:local|lpt|com|file)$/i.test(type)||usablePorts.some(port=>/^(?:LPT|COM|FILE:)/i.test(port.trim())))return 'LOCAL';
   const text=printerIdentitySources(r).join(' ; ');
