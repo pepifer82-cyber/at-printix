@@ -85,11 +85,14 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 .content-card{background:#fff;border:1px solid #dfe6ef;border-radius:12px;box-shadow:0 10px 30px #23456b0b;padding:17px;min-height:280px}
 .content-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.content-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar-input{height:36px;padding:7px 10px;border:1px solid #cfdbe8;border-radius:8px;min-width:220px;outline:none;background:#fff}.toolbar-input:focus{border-color:#7eb1ff;box-shadow:0 0 0 3px #2878ff10}.toolbar-btn{height:36px;padding:0 12px;border-radius:8px;background:#eef4fb;color:#23466b;font-weight:800;border:1px solid #d3dfec}.toolbar-btn.primary{background:#2878ff;color:#fff;border-color:#2878ff}.toolbar-btn.delete{background:#fff1f2;color:#a52f42;border-color:#efc3ca}.content-head h2,.content-head h3{margin:0}.content-head small{color:var(--muted)}
 
-.inventory-head{align-items:center;gap:12px}
-.inventory-heading{flex:0 0 auto;min-width:max-content}
-.inventory-toolbar{flex:1 1 auto;min-width:0;justify-content:flex-end;flex-wrap:nowrap;gap:6px}
+.inventory-header-layout{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.inventory-heading{display:flex;flex-direction:column;gap:3px;min-width:0}
+.inventory-heading h3{margin:0}
+.inventory-heading small{color:var(--muted)}
+.inventory-controls-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.inventory-toolbar{display:flex;align-items:center;justify-content:flex-start;flex:1 1 auto;min-width:0;flex-wrap:wrap;gap:6px}
 .inventory-toolbar>.toolbar-btn,.inventory-toolbar>.column-picker>summary{height:32px;min-height:32px;padding:0 9px;font-size:11px;line-height:30px;white-space:nowrap}
-.inventory-toolbar .inventory-search{height:32px;min-width:220px;width:clamp(230px,25vw,340px);max-width:340px;flex:1 1 260px;padding:6px 10px;font-size:12px}
+.inventory-search{height:32px;min-width:220px;width:clamp(230px,25vw,340px);max-width:340px;flex:0 1 300px;padding:6px 10px;font-size:12px;margin-left:auto}
 .column-picker{position:relative;flex:0 0 auto}
 .column-picker>summary{display:block;list-style:none;cursor:pointer}
 .column-picker>summary::-webkit-details-marker{display:none}
@@ -104,8 +107,8 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 #inventoryResizableTable td,#counterResizableTable td{vertical-align:middle}
 #inventoryResizableTable .map-link{color:#1768d5;font-weight:800;text-decoration:none;white-space:nowrap}
 #inventoryResizableTable .map-link:hover{text-decoration:underline}
-@media(max-width:1180px){.inventory-head{align-items:flex-start;flex-wrap:wrap}.inventory-toolbar{justify-content:flex-start;flex-wrap:wrap}.inventory-toolbar .inventory-search{flex:1 1 260px}}
-@media(max-width:640px){.inventory-toolbar{width:100%}.inventory-toolbar .inventory-search{width:100%;max-width:none;flex-basis:100%}.inventory-heading{min-width:0}.column-picker-panel{left:0;right:auto}}
+@media(max-width:1180px){.inventory-controls-row{align-items:flex-start;flex-wrap:wrap}.inventory-toolbar{justify-content:flex-start;flex-wrap:wrap}.inventory-search{flex:1 1 260px;margin-left:auto}}
+@media(max-width:640px){.inventory-controls-row{display:flex;flex-direction:column;align-items:stretch}.inventory-toolbar{width:100%}.inventory-search{width:100%;max-width:none;flex-basis:100%;margin-left:0}.inventory-heading{min-width:0}.column-picker-panel{left:0;right:auto}}
 
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
 table{width:100%;border-collapse:collapse;min-width:1120px}th,td{text-align:left;padding:14px 16px;border-bottom:1px solid #e9eef5;font-size:13px;vertical-align:top}td:nth-child(1){min-width:180px}td:nth-child(2){min-width:210px}td:nth-child(3){min-width:150px}th{white-space:nowrap}th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#62758c;background:#eef3f8;position:sticky;top:0}tr:last-child td{border-bottom:0}tr.cross-project-dup>td{background:#fffbeb;color:#5f3305}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2f7;color:#52647a}.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:#94a3b8}.pill.online{background:#e9fbf4;color:#16815e}.pill.online:before{background:#20ad7a}.pill.offline{background:#fff0f1;color:#be4b5b}.pill.offline:before{background:#e45867}.pill.stale{background:#fff7e7;color:#a36b11}.pill.stale:before{background:#f2a51d}.pill.unknown{background:#eef2f7;color:#52647a}.pill.unknown:before{background:#94a3b8}
@@ -901,15 +904,20 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
     </section>
 
     <section id="view-inventario" class="content-card hidden">
-      <div class="content-head inventory-head">
-        <div class="inventory-heading"><h3>Impresoras en control</h3><small id="inventoryCount">Cargando inventario…</small></div>
-        <div class="content-tools inventory-toolbar">
-          <button class="toolbar-btn primary" type="button" onclick="toggleManualPrinterForm(true)">＋ Agregar manual</button>
-          <details class="column-picker" id="inventoryColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel" id="inventoryColumnOptions"></div></details>
-          <button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button>
-          <button class="toolbar-btn" type="button" onclick="exportProjectCsv()">CSV</button>
-          <button class="toolbar-btn" type="button" onclick="downloadAgentRelease()">↓ Agente</button>
-          <button class="toolbar-btn" type="button" onclick="openInventoryHelp()">? Ayuda</button>
+      <div class="inventory-header-layout">
+        <div class="inventory-heading">
+          <h3>Impresoras en control</h3>
+          <small id="inventoryCount">Cargando inventario…</small>
+        </div>
+        <div class="inventory-controls-row">
+          <div class="content-tools inventory-toolbar">
+            <button class="toolbar-btn primary" type="button" onclick="toggleManualPrinterForm(true)">＋ Agregar manual</button>
+            <details class="column-picker" id="inventoryColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel" id="inventoryColumnOptions"></div></details>
+            <button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button>
+            <button class="toolbar-btn" type="button" onclick="exportProjectCsv()">CSV</button>
+            <button class="toolbar-btn" type="button" onclick="downloadAgentRelease()">↓ Agente</button>
+            <button class="toolbar-btn" type="button" onclick="openInventoryHelp()">? Ayuda</button>
+          </div>
           <input id="inventorySearch" class="toolbar-input inventory-search" type="search" placeholder="Buscar impresora, modelo, IP o serial…" aria-label="Buscar impresora, modelo, IP o serial">
         </div>
       </div>
