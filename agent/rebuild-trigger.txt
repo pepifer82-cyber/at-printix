@@ -1,1 +1,1 @@
-Rebuild after fixing the three-element synchronization response tuple in PanelSync.
+Rebuild after adding patch gzip SHA-256 validation to diagnose archive transfer.
