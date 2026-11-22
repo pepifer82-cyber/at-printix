@@ -3865,7 +3865,7 @@ function renderInventoryColumnPicker(){
   const panel=$('inventoryColumnOptions');
   if(!panel)return;
   panel.innerHTML='<div class="picker-title">Columnas visibles · Inventario</div>'+
-    INVENTORY_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-inventory-column="'+col.id+'" '+(inventoryVisibleColumns.has(col.id)?'checked':'')+' onchange="setInventoryColumnVisible(\\''+col.id+'\\',this.checked)">'+escapeHtml(col.label)+'</label>').join('');
+    INVENTORY_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-inventory-column="'+col.id+'" '+(inventoryVisibleColumns.has(col.id)?'checked':'')+' onchange="setInventoryColumnVisible(this.dataset.inventoryColumn,this.checked)">'+escapeHtml(col.label)+'</label>').join('');
 }
 function syncInventoryColumnChecks(){
   document.querySelectorAll('[data-inventory-column]').forEach(input=>{
@@ -4339,7 +4339,7 @@ function renderCounterColumnPicker(){
   const panel=$('counterColumnOptions');
   if(!panel)return;
   panel.innerHTML='<div class="picker-title">Columnas visibles · Contadores</div>'+
-    COUNTER_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-counter-column="'+col.id+'" '+(counterVisibleColumns.has(col.id)?'checked':'')+' onchange="setCounterColumnVisible(\\''+col.id+'\\',this.checked)">'+escapeHtml(col.label)+'</label>').join('');
+    COUNTER_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-counter-column="'+col.id+'" '+(counterVisibleColumns.has(col.id)?'checked':'')+' onchange="setCounterColumnVisible(this.dataset.counterColumn,this.checked)">'+escapeHtml(col.label)+'</label>').join('');
 }
 function syncCounterColumnChecks(){
   document.querySelectorAll('[data-counter-column]').forEach(input=>{
