@@ -3281,7 +3281,7 @@ function printerManufacturerValue(r){
     if(found)return found.name;
   }
   const stored=storedValues.find(value=>
-    !/^(?:unknown|generic|default|none|null|n\\/?a|not available|microsoft|windows|usb|net|local|—|-|)$/i.test(value) &&
+    !new Set(['unknown','generic','default','none','null','n/a','not available','microsoft','windows','usb','net','local','—','-','']).has(value.toLowerCase()) &&
     !isPrinterTransportValue(value)
   );
   return stored||'';
