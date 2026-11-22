@@ -78,7 +78,7 @@ jobs:
           # all agent source/code/test changes against the exact official 0.5.3 tree.
           git -C $env:SOURCE_ROOT apply --check --exclude='agent-v0.5.3/AandTPrinterAgent.iss' --exclude='agent-v0.5.3/README.txt' -p2 $patch
           if ($LASTEXITCODE -ne 0) { throw 'Agent code patch validation failed.' }
-          git -C $env:SOURCE_ROOT apply --exclude='AandTPrinterAgent.iss' --exclude='README.txt' -p2 $patch
+          git -C $env:SOURCE_ROOT apply --exclude='agent-v0.5.3/AandTPrinterAgent.iss' --exclude='agent-v0.5.3/README.txt' -p2 $patch
           if ($LASTEXITCODE -ne 0) { throw 'Agent code patch application failed.' }
 
           & (Join-Path $env:GITHUB_WORKSPACE 'agent/apply-installer-cleaninstall.ps1') -SourceRoot $env:SOURCE_ROOT
