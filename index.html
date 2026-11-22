@@ -818,7 +818,7 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 
     <section id="view-tinta" class="content-card hidden">
       <div class="content-head"><div><h3>Niveles de tinta / tóner</h3><small>Lecturas disponibles de cada impresora.</small></div><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div>
-      <div class="table-wrap"><table><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Lectura</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Error</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Último dato de tóner</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Error</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
     </section>
 
     <section id="view-alertas" class="content-card hidden">
@@ -1988,13 +1988,24 @@ function localDateTimeInputValue(value){
   if(Number.isNaN(d.getTime()))return '';
   return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
 }
-function printerTonerGauge(label,value,color,shortName){
+function printerTonerGauge(label,value,color,shortName,observedAt){
   const n=value===null||value===undefined||value===''?NaN:Number(value);
+  const dateLabel=observedAt?'Último dato válido: '+printerDetailDate(observedAt):'Sin fecha histórica disponible';
   if(!Number.isFinite(n)){
-    return '<div class="printer-toner-item"><div class="printer-toner-head"><span><i class="toner-dot" style="background:'+color+'"></i>'+escapeHtml(label)+'</span><b class="toner-unavailable">Sin lectura</b></div><div class="printer-toner-track"><i style="width:0%;background:'+color+'"></i></div><small>El agente no informó este nivel.</small></div>';
+    return '<div class="printer-toner-item"><div class="printer-toner-head"><span><i class="toner-dot" style="background:'+color+'"></i>'+escapeHtml(label)+'</span><b class="toner-unavailable">Sin lectura</b></div><div class="printer-toner-track"><i style="width:0%;background:'+color+'"></i></div><small>Todavía no existe un porcentaje guardado para este nivel.</small></div>';
   }
   const width=Math.max(0,Math.min(100,n));
-  return '<div class="printer-toner-item"><div class="printer-toner-head"><span><i class="toner-dot" style="background:'+color+'"></i>'+escapeHtml(label)+'</span><b>'+escapeHtml(Math.round(n)+'%')+'</b></div><div class="printer-toner-track"><i style="width:'+width+'%;background:'+color+'"></i></div><small>'+escapeHtml(shortName)+'</small></div>';
+  return '<div class="printer-toner-item"><div class="printer-toner-head"><span><i class="toner-dot" style="background:'+color+'"></i>'+escapeHtml(label)+'</span><b>'+escapeHtml(Math.round(n)+'%')+'</b></div><div class="printer-toner-track"><i style="width:'+width+'%;background:'+color+'"></i></div><small>'+escapeHtml(shortName)+' · '+escapeHtml(dateLabel)+'</small></div>';
+}
+function printerLatestTonerReadingAt(r){
+  const dates=[r?.toner_black_reading_at,r?.toner_cyan_reading_at,r?.toner_magenta_reading_at,r?.toner_yellow_reading_at]
+    .filter(Boolean).map(value=>({value,time:new Date(value).getTime()})).filter(item=>Number.isFinite(item.time));
+  dates.sort((a,b)=>b.time-a.time);
+  return dates[0]?.value||null;
+}
+function printerTonerReadingLabel(r){
+  const value=printerLatestTonerReadingAt(r);
+  return value?printerDetailDate(value):'Sin lectura histórica';
 }
 function printerColorMode(r){
   const colorLevels=[r?.toner_cyan_percent,r?.toner_magenta_percent,r?.toner_yellow_percent];
@@ -2274,13 +2285,13 @@ function renderPrinterDetail(r){
       '<div class="printer-detail-metric metric-cyan"><span>CONTADOR DE ESCÁNER</span><b>'+escapeHtml(scannerCount)+'</b><small>Escaneos reportados por el agente</small></div>'+
       '<div class="printer-detail-metric metric-purple"><span>ÚLTIMA LECTURA</span><b class="metric-date">'+escapeHtml(printerDetailDate(r.reading_at))+'</b><small>Lectura automática más reciente</small></div>'+
     '</div>'+
-    '<div class="printer-detail-section"><div class="printer-detail-section-head"><div><h3>🖨️ Niveles de tóner / tinta</h3><p>Los porcentajes se muestran únicamente cuando la impresora los informa.</p></div></div>'+
+    '<div class="printer-detail-section"><div class="printer-detail-section-head"><div><h3>🖨️ Niveles de tóner / tinta</h3><p>Se conserva el último porcentaje válido de cada color, aunque la lectura más reciente no incluya ese dato. Cada color muestra la fecha de su último registro.</p></div></div>'+
       '<div class="printer-toner-grid '+(printerColorMode(r)==='mono'?'is-mono':'is-color')+'">'+
-        printerTonerGauge('Negro',r.toner_black_percent,'#283447','K · Black')+
+        printerTonerGauge('Negro',r.toner_black_percent,'#283447','K · Black',r.toner_black_reading_at)+
         (printerColorMode(r)==='color'?(
-          printerTonerGauge('Cian',r.toner_cyan_percent,'#00bde8','C · Cyan')+
-          printerTonerGauge('Magenta',r.toner_magenta_percent,'#e34a9a','M · Magenta')+
-          printerTonerGauge('Amarillo',r.toner_yellow_percent,'#eab308','Y · Yellow')
+          printerTonerGauge('Cian',r.toner_cyan_percent,'#00bde8','C · Cyan',r.toner_cyan_reading_at)+
+          printerTonerGauge('Magenta',r.toner_magenta_percent,'#e34a9a','M · Magenta',r.toner_magenta_reading_at)+
+          printerTonerGauge('Amarillo',r.toner_yellow_percent,'#eab308','Y · Yellow',r.toner_yellow_reading_at)
         ):'')+
       '</div>'+
       '<div class="printer-detail-extra"><h4>Otros consumibles</h4>'+printerOtherConsumables(r.consumables)+'</div>'+
@@ -3635,7 +3646,7 @@ function renderAll(){
   ].some(v=>String(v??'').toLowerCase().includes(invTerm))):activeRows;
   if($('inventoryCount'))$('inventoryCount').textContent='Mostrando '+visibleInventory.length+' de '+activeRows.length+' impresoras activas · '+rows.length+' registros en el proyecto';
   $('inventoryBody').innerHTML=visibleInventory.length?visibleInventory.map(r=>'<tr><td>'+escapeHtml(printerManufacturerValue(r)||'—')+'</td><td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="'+escapeHtml(visiblePrinterName(r)+(r.description?' · Modelo del agente: '+printerInventoryLabel(r):''))+' · Abrir ficha completa">'+escapeHtml(visiblePrinterName(r))+'</button>'+(r.merged_records>1?'<div style="font-size:10px;color:#8193a9;margin-top:3px" title="'+escapeHtml((r.merged_names||[]).join(' + '))+'">+ '+(r.merged_records-1)+' registro(s) duplicado(s) fusionado(s)</div>':'')+'</td><td><input class="inline-edit" type="text" maxlength="240" placeholder="¿De dónde es?" value="'+escapeHtml(r.description||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td><input class="inline-edit" type="text" maxlength="120" placeholder="Ciudad" value="'+escapeHtml(r.city||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="city" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td>'+escapeHtml(connectionLabel(r))+'</td><td>'+escapeHtml(printerDriverValue(r)||'—')+'</td><td>'+escapeHtml(printerIpPort(r))+'</td><td>'+escapeHtml(printerSerialValue(r)||'—')+'</td><td>'+escapeHtml(printerMacValue(r)||'—')+'</td><td>'+statePill(printerState(r))+'</td><td class="inventory-nowrap"><span class="inventory-single-line '+(staleUpdateInfo(r.last_seen_at).stale?'stale-date':'')+'" title="Último contacto confirmado">'+escapeHtml(staleUpdateInfo(r.last_seen_at).label)+'</span></td><td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td></tr>').join(''):'<tr><td colspan="12" class="empty">'+(invTerm?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
-  $('tonerBody').innerHTML=activeRows.length?activeRows.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+pct(r.toner_black_percent)+'</td><td>'+pct(r.toner_cyan_percent)+'</td><td>'+pct(r.toner_magenta_percent)+'</td><td>'+pct(r.toner_yellow_percent)+'</td><td>'+escapeHtml(r.reading_at?r.reading_at.replace('T',' ').replace('Z',' UTC'):'—')+'</td><td>'+escapeHtml(consumablesSummary(r.consumables))+'</td><td>'+escapeHtml(detectionSummary(r))+'</td><td>'+escapeHtml(r.reading_error||r.snmp_error||'—')+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">Sin lecturas de tinta todavía.</td></tr>';
+  $('tonerBody').innerHTML=activeRows.length?activeRows.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+pct(r.toner_black_percent)+'</td><td>'+pct(r.toner_cyan_percent)+'</td><td>'+pct(r.toner_magenta_percent)+'</td><td>'+pct(r.toner_yellow_percent)+'</td><td>'+escapeHtml(printerTonerReadingLabel(r))+'</td><td>'+escapeHtml(consumablesSummary(r.consumables))+'</td><td>'+escapeHtml(detectionSummary(r))+'</td><td>'+escapeHtml(r.reading_error||r.snmp_error||'—')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">Sin lecturas de tinta todavía.</td></tr>';
   $('offlineNote').textContent='Conectada solo significa que el agente confirmó respuesta online. Las colas de Windows en estado inactivo, sin respuesta comprobada, figuran como “Sin verificar”.';
   $('offlineBody').innerHTML=offline.length?offline.map(r=>'<tr><td>'+escapeHtml(visiblePrinterName(r))+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+statePill('offline')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(printerIpPort(r))+'</td><td>'+escapeHtml(r.city||'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No hay impresoras desconectadas.</td></tr>'; 
   if(currentView!=='retiradas'){
@@ -4169,7 +4180,7 @@ function exportProjectExcel(){
     'C Cian':r.toner_cyan_percent==null?'':Math.round(Number(r.toner_cyan_percent))+'%',
     'M Magenta':r.toner_magenta_percent==null?'':Math.round(Number(r.toner_magenta_percent))+'%',
     'Y Amarillo':r.toner_yellow_percent==null?'':Math.round(Number(r.toner_yellow_percent))+'%',
-    Lectura:r.reading_at?r.reading_at.replace('T',' ').replace('Z',' UTC'):'',
+    'Última lectura de tóner':printerTonerReadingLabel(r),
     Error:r.reading_error||r.snmp_error||''
   }));
   const disconnected=offline.map(r=>({
