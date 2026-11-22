@@ -3769,10 +3769,7 @@ const INVENTORY_COLUMN_DEFS=[
     const serials=serialByProject.get(currentProjectId)||[];
     return serials.length?serials.length+' serial(es) activo(s)':'—';
   }},
-  {id:'machines',label:'Número de máquinas',value:()=>{
-    const machines=new Set(agentRows.map(a=>String(a.machine_name||a.agent_code||'').trim()).filter(Boolean));
-    return machines.size||'—';
-  }},
+  {id:'machines',label:'Número de máquinas',value:(r,all)=>all.length||'—'},
   {id:'lastConnection',label:'Última conexión',value:r=>lastContact(r.last_seen_at)},
   {id:'lastUpdate',label:'Última actualización',value:r=>lastContact(r.reading_at||r.updated_at||r.last_seen_at)},
   {id:'offlineDays',label:'Días Offline',value:r=>{
@@ -3833,7 +3830,7 @@ function renderInventoryTable(visibleInventory,activeRows){
       if(col.id==='state')return '<td>'+statePill(printerState(r))+'</td>';
       if(col.id==='actions')return '<td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td>';
       const definition=INVENTORY_COLUMN_DEFS.find(item=>item.id===col.id);
-      return '<td>'+escapeHtml(definition?(definition.value(r)??'—'):'—')+'</td>';
+      return '<td>'+escapeHtml(definition?(definition.value(r,activeRows)??'—'):'—')+'</td>';
     }).join('');
     return '<tr data-printer-id="'+escapeHtml(r.printer_id)+'">'+cells+'</tr>';
   }).join(''):'<tr><td colspan="'+columns.length+'" class="empty">'+(term?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
@@ -3869,7 +3866,7 @@ function exportProjectCsv(){
   atNotify('CSV generado correctamente.','success');
 }
 function downloadAgentRelease(){
-  window.open('https://github.com/pepifer82-cyber/at-printix/releases/latest','_blank','noopener');
+  window.open('https://github.com/pepifer82-cyber/at-printix/releases','_blank','noopener');
 }
 function openInventoryHelp(){
   showView('asistente');
