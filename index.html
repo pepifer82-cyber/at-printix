@@ -327,6 +327,31 @@ html[data-theme="dark"] .printer-photo-copy a{color:#82dfff}
 @media(max-width:650px){.printer-photo-card{grid-template-columns:1fr}.printer-photo-frame{height:200px}}
 
 .printer-detail-section{border:1px solid var(--line);border-radius:15px;padding:16px;margin-top:14px;background:#f9fbff}
+.printer-device-status{background:linear-gradient(135deg,#f7fbff,#eef6ff);border-color:#cfe2f8}
+.printer-device-status-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.printer-device-status-title{font-size:13px;font-weight:900;display:flex;align-items:center;gap:9px}
+.device-health-pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:900;white-space:nowrap;border:1px solid transparent}
+.device-health-pill.status-normal{background:#e7f7ee;color:#167343;border-color:#bce8ce}
+.device-health-pill.status-warning{background:#fff4dc;color:#946000;border-color:#f4d89a}
+.device-health-pill.status-error{background:#ffe8e9;color:#b42332;border-color:#fac3c7}
+.device-health-pill.status-info{background:#e7f3ff;color:#1c5fa7;border-color:#c3ddfa}
+.device-health-pill.status-unavailable{background:#edf1f5;color:#637084;border-color:#d6dee8}
+.printer-device-status-detail{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 0 0}
+.printer-device-alert-list{display:grid;gap:8px;margin-top:12px}
+.printer-device-alert{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:12px}
+.printer-device-alert strong{display:block;font-size:11px;margin-bottom:3px}
+.printer-device-alert p{margin:0;color:var(--muted);line-height:1.45}
+.printer-device-alert .device-alert-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex:0 0 auto;background:#8a9aab}
+.printer-device-alert.severity-error .device-alert-dot{background:#dc3e4d}
+.printer-device-alert.severity-warning .device-alert-dot{background:#e3a326}
+.printer-device-alert.severity-info .device-alert-dot{background:#3986d8}
+html[data-theme="dark"] .printer-device-status{background:#16283d;border-color:#294461}
+html[data-theme="dark"] .printer-device-alert{background:#122238;border-color:#2b435e}
+html[data-theme="dark"] .device-health-pill.status-normal{background:#153c2b;color:#8fe0b1;border-color:#286b4a}
+html[data-theme="dark"] .device-health-pill.status-warning{background:#493716;color:#ffd27a;border-color:#806022}
+html[data-theme="dark"] .device-health-pill.status-error{background:#4a2028;color:#ff9ba4;border-color:#85343f}
+html[data-theme="dark"] .device-health-pill.status-info{background:#193451;color:#9bcaff;border-color:#315f8d}
+html[data-theme="dark"] .device-health-pill.status-unavailable{background:#253447;color:#b7c4d3;border-color:#405369}
 .printer-detail-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .printer-detail-section-head h3{font-size:17px;margin:0 0 4px}
 .printer-detail-section-head p{font-size:12px;color:var(--muted);margin:0}
@@ -879,18 +904,18 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
 
     <section id="view-tinta" class="content-card hidden">
       <div class="content-head"><div><h3>Niveles de tinta / tóner</h3><small>Lecturas disponibles de cada impresora.</small></div><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div>
-      <div class="table-wrap"><table id="tonerResizableTable" class="column-resize-table"><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Último dato de tóner</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Error</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
+      <div class="table-wrap"><table id="tonerResizableTable" class="column-resize-table"><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Último dato de tóner</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Estado del equipo</th><th>Error técnico</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
     </section>
 
     <section id="view-alertas" class="content-card hidden">
-      <div class="content-head"><div><h3>Alertas por correo</h3><small>Recibí avisos cuando una impresora falle o un consumible llegue al límite.</small></div></div>
+      <div class="content-head"><div><h3>Alertas por correo</h3><small>Recibí avisos cuando el equipo informe un error, una advertencia o un consumible bajo.</small></div></div>
       <div class="form-grid">
         <label class="field"><span>Correos destinatarios (separados por coma)</span><input id="alertEmails" type="text" placeholder="soporte@empresa.com, compras@empresa.com"></label>
         <label class="field"><span>Umbral de consumible (%)</span><input id="alertThreshold" type="number" min="1" max="50" value="10"></label>
       </div>
       <div class="form-row" style="display:flex;gap:18px;flex-wrap:wrap;margin:14px 0">
         <label><input id="alertsEnabled" type="checkbox"> Activar avisos por correo</label>
-        <label><input id="alertFailure" type="checkbox" checked> Avisar fallos / pérdida de comunicación</label>
+        <label><input id="alertFailure" type="checkbox" checked> Avisar errores, advertencias y pérdida de comunicación</label>
         <label><input id="alertLow" type="checkbox" checked> Avisar consumibles al nivel configurado</label>
       </div>
       <p class="muted">Se consideran los consumibles que el fabricante exponga mediante el agente. Los que no tengan lectura compatible aparecerán como «No disponible».</p>
@@ -1983,6 +2008,44 @@ function detectionSummary(r){
   const methods=Array.isArray(r.detection_methods)?r.detection_methods:[];
   return (methods.length?methods.join(', '):'Sin método informado')+(r.detection_error?' · '+r.detection_error:'');
 }
+function printerDeviceAlerts(r){
+  let value=r?.device_alerts;
+  if(typeof value==='string'){try{value=JSON.parse(value)}catch{value=[]}}
+  return Array.isArray(value)?value.filter(a=>a&&typeof a==='object'&&String(a.message||'').trim()):[];
+}
+function printerDeviceStatusKey(r){
+  const alerts=printerDeviceAlerts(r);
+  const reported=String(r?.device_status||'').toLowerCase();
+  if(alerts.some(a=>String(a.severity).toLowerCase()==='error')||reported==='error')return 'error';
+  if(alerts.some(a=>String(a.severity).toLowerCase()==='warning')||reported==='warning')return 'warning';
+  if(reported==='info')return 'info';
+  if(r?.device_status_read===true||String(r?.device_status_read).toLowerCase()==='true')return 'normal';
+  return 'unavailable';
+}
+function printerDeviceStatusLabel(r){
+  return ({normal:'Sin alertas',warning:'Advertencia',error:'Error del equipo',info:'Información',unavailable:'Sin lectura de estado'})[printerDeviceStatusKey(r)];
+}
+function printerDeviceStatusBadge(r){
+  const key=printerDeviceStatusKey(r);
+  return '<span class="device-health-pill status-'+key+'">'+escapeHtml(printerDeviceStatusLabel(r))+'</span>';
+}
+function printerDeviceStatusSection(r){
+  const alerts=printerDeviceAlerts(r);
+  const key=printerDeviceStatusKey(r);
+  let detail=String(r?.device_status_detail||'').trim();
+  if(!detail){
+    if(alerts.length)detail=alerts.slice(0,4).map(a=>String(a.message)).join(' · ');
+    else if(key==='normal')detail='Sin alertas activas reportadas por la impresora.';
+    else detail='Esta lectura todavía no contiene un reporte de errores del dispositivo. La falta de porcentaje de tóner no significa que el cartucho esté vacío ni averiado.';
+  }
+  const list=alerts.length?'<div class="printer-device-alert-list">'+alerts.map(a=>{
+    const severity=['error','warning','info'].includes(String(a.severity||'').toLowerCase())?String(a.severity).toLowerCase():'info';
+    const title=severity==='error'?'Error':severity==='warning'?'Advertencia':'Información';
+    return '<div class="printer-device-alert severity-'+severity+'"><i class="device-alert-dot"></i><div><strong>'+escapeHtml(title+' · '+String(a.component||'Impresora'))+'</strong><p>'+escapeHtml(a.message)+'</p></div></div>';
+  }).join('')+'</div>':'';
+  const source=r?.device_status_source?'<p class="printer-device-status-detail">Origen: '+escapeHtml(r.device_status_source)+'</p>':'';
+  return '<div class="printer-detail-section printer-device-status"><div class="printer-device-status-head"><div><div class="printer-device-status-title">◉ Estado y alertas de la impresora</div><p class="printer-device-status-detail">'+escapeHtml(detail)+'</p></div>'+printerDeviceStatusBadge(r)+'</div>'+list+source+'<p class="printer-device-status-detail">El estado del equipo y el porcentaje de tóner son lecturas distintas: se muestran únicamente cuando la impresora los informa.</p></div>';
+}
 function lastContact(v){return v?new Date(v).toLocaleString():'Nunca'}
 function pct(v){return v==null?'—':Math.round(Number(v))+'%'}
 
@@ -2330,7 +2393,8 @@ function renderPrinterDetail(r){
     printerDetailValue('Computadora',r.machine_name),
     printerDetailValue('Usuario Windows',r.windows_user),
     printerDetailValue('Versión del agente',r.app_version),
-    printerDetailValue('Estado informado',r.last_status||r.reading_status),
+    printerDetailValue('Estado de conexión',r.last_status||r.reading_status),
+    printerDetailValue('Estado del equipo',printerDeviceStatusLabel(r)),
     printerDetailValue('Último contacto',printerDetailDate(r.last_seen_at)),
     printerDetailValue('Última lectura automática',printerDetailDate(r.reading_at)),
     printerDetailValue('Última comprobación',printerDetailDate(r.last_probe_at)),
@@ -2347,6 +2411,7 @@ function renderPrinterDetail(r){
       '<div class="printer-detail-metric metric-cyan"><span>CONTADOR DE ESCÁNER</span><b>'+escapeHtml(scannerCount)+'</b><small>Escaneos reportados por el agente</small></div>'+
       '<div class="printer-detail-metric metric-purple"><span>ÚLTIMA LECTURA</span><b class="metric-date">'+escapeHtml(printerDetailDate(r.reading_at))+'</b><small>Lectura automática más reciente</small></div>'+
     '</div>'+
+    printerDeviceStatusSection(r)+
     '<div class="printer-detail-section"><div class="printer-detail-section-head"><div><h3>🖨️ Niveles de tóner / tinta</h3><p>Se conserva el último porcentaje válido de cada color, aunque la lectura más reciente no incluya ese dato. Cada color muestra la fecha de su último registro.</p></div></div>'+
       '<div class="printer-toner-grid '+(printerColorMode(r)==='mono'?'is-mono':'is-color')+'">'+
         printerTonerGauge('Negro',r.toner_black_percent,'#283447','K · Black',r.toner_black_reading_at)+
@@ -3132,7 +3197,7 @@ async function loadAlertSettings(){
     $('alertLow').checked=s?.notify_low_consumable!==false;
     const events=await api('/rest/v1/printer_alert_events?select=id,printer_id,alert_type,consumable_key,observed_value,threshold,message,created_at,delivery_status&project_id=eq.'+encodeURIComponent(currentProjectId)+'&order=created_at.desc&limit=50');
     const printerById=new Map(rows.map(r=>[r.printer_id,r.display_name]));
-    $('alertEventsBody').innerHTML=events.length?events.map(e=>'<tr><td>'+escapeHtml(lastContact(e.created_at))+'</td><td>'+escapeHtml(printerById.get(e.printer_id)||'Impresora')+'</td><td>'+escapeHtml(e.alert_type==='consumable_low'?'Consumible bajo':'Fallo de impresora')+'</td><td>'+escapeHtml(e.observed_value==null?'—':e.observed_value+'%')+'</td><td>'+escapeHtml(e.delivery_status||'Pendiente')+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">Sin alertas registradas.</td></tr>';
+    $('alertEventsBody').innerHTML=events.length?events.map(e=>'<tr><td>'+escapeHtml(lastContact(e.created_at))+'</td><td>'+escapeHtml(printerById.get(e.printer_id)||'Impresora')+'</td><td>'+escapeHtml(e.alert_type==='consumable_low'?'Consumible bajo':e.alert_type==='printer_warning'?'Advertencia de impresora':'Fallo de impresora')+'</td><td>'+escapeHtml(e.observed_value==null?'—':e.observed_value+'%')+'</td><td>'+escapeHtml(e.delivery_status||'Pendiente')+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">Sin alertas registradas.</td></tr>';
   }catch(e){$('alertSettingsMsg').textContent='No se pudo cargar la configuración: '+(e?.message||e);}
 }
 async function saveAlertSettings(){
@@ -3708,7 +3773,7 @@ function renderAll(){
   ].some(v=>String(v??'').toLowerCase().includes(invTerm))):activeRows;
   if($('inventoryCount'))$('inventoryCount').textContent='Mostrando '+visibleInventory.length+' de '+activeRows.length+' impresoras activas · '+rows.length+' registros en el proyecto';
   $('inventoryBody').innerHTML=visibleInventory.length?visibleInventory.map(r=>'<tr><td>'+escapeHtml(printerManufacturerValue(r)||'—')+'</td><td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="'+escapeHtml(visiblePrinterName(r)+(r.description?' · Modelo del agente: '+printerInventoryLabel(r):''))+' · Abrir ficha completa">'+escapeHtml(visiblePrinterName(r))+'</button>'+(r.merged_records>1?'<div style="font-size:10px;color:#8193a9;margin-top:3px" title="'+escapeHtml((r.merged_names||[]).join(' + '))+'">+ '+(r.merged_records-1)+' registro(s) duplicado(s) fusionado(s)</div>':'')+'</td><td><input class="inline-edit" type="text" maxlength="240" placeholder="¿De dónde es?" value="'+escapeHtml(r.description||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="description" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td><input class="inline-edit" type="text" maxlength="120" placeholder="Ciudad" value="'+escapeHtml(r.city||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="city" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td><td>'+escapeHtml(connectionLabel(r))+'</td><td>'+escapeHtml(printerDriverValue(r)||'—')+'</td><td>'+escapeHtml(printerIpPort(r))+'</td><td>'+escapeHtml(printerSerialValue(r)||'—')+'</td><td>'+escapeHtml(printerMacValue(r)||'—')+'</td><td>'+statePill(printerState(r))+'</td><td class="inventory-nowrap"><span class="inventory-single-line '+(staleUpdateInfo(r.last_seen_at).stale?'stale-date':'')+'" title="Último contacto confirmado">'+escapeHtml(staleUpdateInfo(r.last_seen_at).label)+'</span></td><td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td></tr>').join(''):'<tr><td colspan="12" class="empty">'+(invTerm?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
-  $('tonerBody').innerHTML=activeRows.length?activeRows.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+pct(r.toner_black_percent)+'</td><td>'+pct(r.toner_cyan_percent)+'</td><td>'+pct(r.toner_magenta_percent)+'</td><td>'+pct(r.toner_yellow_percent)+'</td><td>'+escapeHtml(printerTonerReadingLabel(r))+'</td><td>'+escapeHtml(consumablesSummary(r.consumables))+'</td><td>'+escapeHtml(detectionSummary(r))+'</td><td>'+escapeHtml(r.reading_error||r.snmp_error||'—')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">Sin lecturas de tinta todavía.</td></tr>';
+  $('tonerBody').innerHTML=activeRows.length?activeRows.map(r=>'<tr><td>'+escapeHtml(r.display_name)+'</td><td>'+pct(r.toner_black_percent)+'</td><td>'+pct(r.toner_cyan_percent)+'</td><td>'+pct(r.toner_magenta_percent)+'</td><td>'+pct(r.toner_yellow_percent)+'</td><td>'+escapeHtml(printerTonerReadingLabel(r))+'</td><td>'+escapeHtml(consumablesSummary(r.consumables))+'</td><td>'+escapeHtml(detectionSummary(r))+'</td><td>'+printerDeviceStatusBadge(r)+'</td><td>'+escapeHtml(r.reading_error||r.snmp_error||'—')+'</td></tr>').join(''):'<tr><td colspan="10" class="empty">Sin lecturas de tinta todavía.</td></tr>';
   $('offlineNote').textContent='Conectada solo significa que el agente confirmó respuesta online. Las colas de Windows en estado inactivo, sin respuesta comprobada, figuran como “Sin verificar”.';
   $('offlineBody').innerHTML=offline.length?offline.map(r=>'<tr><td>'+escapeHtml(visiblePrinterName(r))+'</td><td>'+escapeHtml(r.description||'—')+'</td><td>'+statePill('offline')+'</td><td>'+escapeHtml(lastContact(r.last_seen_at))+'</td><td>'+escapeHtml(r.agent_code||r.machine_name||'—')+'</td><td>'+escapeHtml(printerIpPort(r))+'</td><td>'+escapeHtml(r.city||'—')+'</td><td><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No hay impresoras desconectadas.</td></tr>'; 
   if(currentView!=='retiradas'){
