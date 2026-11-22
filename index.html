@@ -2381,7 +2381,7 @@ function printerPhotoCandidateScore(r,candidate){
   return matchedTokens.length+(brandMatched?4:0);
 }
 async function searchPrinterPhotoOpenverse(r){
-  const manufacturer=String(r?.manufacturer||'').trim();
+  const manufacturer=String(printerManufacturerValue(r)||'').trim();
   const model=String(printerInventoryLabel(r)||'').trim();
   if(!model||model==='Ver ficha')return null;
   const params=new URLSearchParams({q:(manufacturer+' '+model+' printer').slice(0,200),page_size:'20',mature:'false'});
@@ -2456,7 +2456,7 @@ function renderPrinterPhotoResult(photo,r){
   const license=[photo.license,photo.licenseVersion].filter(Boolean).join(' ');
   const attribution=[photo.creator,license].filter(Boolean).join(' · ');
   const licenseLink=photo.licenseUrl?'<a href="'+escapeHtml(photo.licenseUrl)+'" target="_blank" rel="noopener noreferrer">Ver licencia ↗</a>':'';
-  target.innerHTML='<div class="printer-photo-frame"><img src="'+escapeHtml(photo.src)+'" alt="'+escapeHtml('Fotografía de '+(r.manufacturer||'')+' '+printerInventoryLabel(r))+'" loading="lazy" referrerpolicy="no-referrer"></div>'+
+  target.innerHTML='<div class="printer-photo-frame"><img src="'+escapeHtml(photo.src)+'" alt="'+escapeHtml('Fotografía de '+printerManufacturerValue(r)+' '+printerInventoryLabel(r))+'" loading="lazy" referrerpolicy="no-referrer"></div>'+
     '<div class="printer-photo-copy"><strong>Foto encontrada para '+escapeHtml(printerInventoryLabel(r))+'</strong>'+
     '<p>'+escapeHtml(photo.title||printerInventoryLabel(r))+'</p>'+
     (attribution?'<small>'+escapeHtml(attribution)+'</small>':'<small>Fuente: '+escapeHtml(photo.provider||'Banco de imágenes')+'</small>')+
@@ -3237,13 +3237,54 @@ function printerDriverValue(r){
   return '';
 }
 function printerManufacturerValue(r){
-  const stored=String(r?.manufacturer||'').trim();
-  if(stored)return stored;
-  const tagged=printerTaggedIdentityValue(r,'MFG|MANUFACTURER|OEM');
-  if(tagged)return tagged;
-  const model=printerModelRaw(r).toUpperCase();
-  const known=['HP','Hewlett-Packard','Samsung','Canon','Brother','Ricoh','Xerox','Pantum','Kyocera','Epson','Lexmark','Konica Minolta','Sharp','Toshiba','OKI','Dell','Zebra'];
-  return known.find(brand=>model.startsWith(brand.toUpperCase()+' '))||'';
+  const knownBrands=[
+    {name:'HP',pattern:/\\b(?:HP|HEWLETT[\\s-]*PACKARD)\\b/i},
+    {name:'Epson',pattern:/\\b(?:EPSON|SEIKO[\\s-]*EPSON)\\b/i},
+    {name:'Ricoh',pattern:/\\bRICOH\\b/i},
+    {name:'Pantum',pattern:/\\bPANTUM\\b/i},
+    {name:'Brother',pattern:/\\bBROTHER\\b/i},
+    {name:'Canon',pattern:/\\bCANON\\b/i},
+    {name:'Samsung',pattern:/\\bSAMSUNG\\b/i},
+    {name:'Xerox',pattern:/\\bXEROX\\b/i},
+    {name:'Kyocera',pattern:/\\bKYOCERA(?:[\\s-]*MITA)?\\b/i},
+    {name:'Lexmark',pattern:/\\bLEXMARK\\b/i},
+    {name:'Konica Minolta',pattern:/\\bKONICA[\\s-]*MINOLTA\\b/i},
+    {name:'Sharp',pattern:/\\bSHARP\\b/i},
+    {name:'Toshiba',pattern:/\\bTOSHIBA\\b/i},
+    {name:'OKI',pattern:/\\bOKI(?:[\\s-]*DATA)?\\b/i},
+    {name:'Dell',pattern:/\\bDELL\\b/i},
+    {name:'Zebra',pattern:/\\bZEBRA\\b/i},
+    {name:'Fujitsu',pattern:/\\bFUJITSU\\b/i},
+    {name:'Riso',pattern:/\\bRISO\\b/i},
+    {name:'Dymo',pattern:/\\bDYMO\\b/i},
+    {name:'Citizen',pattern:/\\bCITIZEN\\b/i},
+    {name:'TSC',pattern:/\\bTSC\\b/i},
+    {name:'SATO',pattern:/\\bSATO\\b/i},
+    {name:'Printronix',pattern:/\\bPRINTRONIX\\b/i},
+    {name:'Olivetti',pattern:/\\bOLIVETTI\\b/i},
+    {name:'Panasonic',pattern:/\\bPANASONIC\\b/i},
+    {name:'Gestetner',pattern:/\\bGESTETNER\\b/i}
+  ];
+  const storedValues=[
+    r?.manufacturer,r?.vendor,r?.make,
+    printerTaggedIdentityValue(r,'MFG|MANUFACTURER|OEM')
+  ].map(value=>String(value||'').trim()).filter(Boolean);
+  const modelValues=[
+    printerModelRaw(r),r?.model,r?.display_name,r?.printer_name,
+    r?.windows_printer_name,r?.name,r?.device_description,
+    r?.raw_identity,r?.device_id,r?.hardware_id
+  ].map(value=>String(value||'').trim()).filter(Boolean);
+  // Primero normalizar el campo del fabricante; si viene vacío o genérico,
+  // buscar la marca en el modelo y en los nombres recibidos del agente.
+  for(const value of [...storedValues,...modelValues]){
+    const found=knownBrands.find(brand=>brand.pattern.test(value));
+    if(found)return found.name;
+  }
+  const stored=storedValues.find(value=>
+    !/^(?:unknown|generic|default|none|null|n\\/?a|not available|microsoft|windows|usb|net|local|—|-|)$/i.test(value) &&
+    !isPrinterTransportValue(value)
+  );
+  return stored||'';
 }
 function printerSerialValue(r){
   const stored=String(r?.serial_number||'').trim();
@@ -3865,7 +3906,7 @@ function renderRetiredFleet(){
     const rowTargetProjects=targetProjects.filter(tp=>p&&String(tp.company_id)===String(p.company_id));
     const rowTargetOptions=rowTargetProjects.map(tp=>'<option value="'+escapeHtml(tp.id)+'">'+escapeHtml(tp.name||'Proyecto sin nombre')+'</option>').join('');
     const companyName=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'—';
-    const model=[r.manufacturer,printerInventoryLabel(r)].filter(v=>v&&v!=='Ver ficha').join(' · ')||'—';
+    const model=[printerManufacturerValue(r),printerInventoryLabel(r)].filter(v=>v&&v!=='Ver ficha').join(' · ')||'—';
     const connection=[connectionLabel(r),printerIpPort(r)].filter(v=>v&&v!=='—').join(' · ')||'—';
     const countValue=r.page_count==null?'—':Number(r.page_count).toLocaleString('es-PY');
     const last=r.counter_reading_at||r.reading_at||r.last_seen_at;
@@ -3945,8 +3986,8 @@ function exportRetiredFleetExcel(){
     const row={
       'Proyecto de origen':p?.name||'',
       Impresora:r.display_name||'',
-      Fabricante:r.manufacturer||'',
-      Modelo:r.model||'',
+      Fabricante:printerManufacturerValue(r),
+      Modelo:printerInventoryLabel(r),
       Descripción:r.description||'',
       Ciudad:r.city||'',
       Conexión:r.connection_type||'',
@@ -4000,7 +4041,7 @@ function inventoryMapUrl(r){
 const INVENTORY_COLUMN_DEFS=[
   {id:'project',label:'Proyecto / Contrato',value:()=>projects.find(p=>String(p.id)===String(currentProjectId))?.name||'—'},
   {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
-  {id:'manufacturer',label:'Fabricante',value:r=>inventoryFirstValue(r,['manufacturer','vendor','make'])||'—'},
+  {id:'manufacturer',label:'Fabricante',value:r=>printerManufacturerValue(r)||'—'},
   {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
   {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
   {id:'country',label:'País',value:r=>inventoryFirstValue(r,['country','country_name','nation'])||'—'},
@@ -4436,7 +4477,7 @@ async function loadCounterHistory(showMessage=true){
         ...history,
         printer_id:device.printer_id,
         printer:device.display_name||device.model||best.printer||best.display_name||history.printer||'',
-        manufacturer:device.manufacturer||history.manufacturer||'',
+        manufacturer:printerManufacturerValue(device)||printerManufacturerValue(history)||'',
         model:device.model||history.model||'',
         serial_number:history.serial_number||device.serial_number||'',
         reference:history.reference||history.asset_reference||history.asset_tag||device.reference||device.asset_reference||device.asset_tag||'',
@@ -4685,7 +4726,7 @@ function aggregateCounterPeriodRows(dailyRows){
       const cleanModel=printerInventoryLabel(r);
       item={
         project_name:projectName,printer_id:r.printer_id,printer:cleanModel==='Ver ficha'?'—':cleanModel,
-        ip_address:r.ip_address||'',manufacturer:r.manufacturer||'',model:cleanModel==='Ver ficha'?'':cleanModel,
+        ip_address:r.ip_address||'',manufacturer:printerManufacturerValue(r),model:cleanModel==='Ver ficha'?'':cleanModel,
         serial_number:r.serial_number||'',reference:r.reference||r.asset_reference||r.asset_tag||'',location:r.location||r.city||r.description||r.address||'',first_reading_at:null,last_reading_at:null,
         first_page_count:null,last_page_count:null,total_general_pages:null,total_black_pages:null,total_color_pages:null,
         first_scanner_count:null,last_scanner_count:null,total_scans:null,
@@ -4699,7 +4740,7 @@ function aggregateCounterPeriodRows(dailyRows){
     if(!item.serial_number&&printerSerialValue(r))item.serial_number=printerSerialValue(r);
     if(!item.reference)item.reference=r.reference||r.asset_reference||r.asset_tag||'';
     if(!item.location)item.location=r.location||r.city||r.description||r.address||'';
-    if(!item.manufacturer&&r.manufacturer)item.manufacturer=r.manufacturer;
+    if(!item.manufacturer)item.manufacturer=printerManufacturerValue(r);
     if(!item.model){
       const cleanModel=printerInventoryLabel(r);
       if(cleanModel!=='Ver ficha'){
