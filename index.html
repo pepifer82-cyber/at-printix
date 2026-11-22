@@ -84,6 +84,29 @@ html[data-theme="dark"] .app-btn.has-renewal-pending .app-title{color:#ffdce0}
 .metric{font-size:34px;font-weight:900;letter-spacing:-.04em;margin-top:5px;color:var(--kpi-accent);-webkit-text-stroke:.35px currentColor;text-shadow:0 1px 0 #ffffffb0}
 .content-card{background:#fff;border:1px solid #dfe6ef;border-radius:12px;box-shadow:0 10px 30px #23456b0b;padding:17px;min-height:280px}
 .content-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.content-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar-input{height:36px;padding:7px 10px;border:1px solid #cfdbe8;border-radius:8px;min-width:220px;outline:none;background:#fff}.toolbar-input:focus{border-color:#7eb1ff;box-shadow:0 0 0 3px #2878ff10}.toolbar-btn{height:36px;padding:0 12px;border-radius:8px;background:#eef4fb;color:#23466b;font-weight:800;border:1px solid #d3dfec}.toolbar-btn.primary{background:#2878ff;color:#fff;border-color:#2878ff}.toolbar-btn.delete{background:#fff1f2;color:#a52f42;border-color:#efc3ca}.content-head h2,.content-head h3{margin:0}.content-head small{color:var(--muted)}
+
+.inventory-head{align-items:center;gap:12px}
+.inventory-heading{flex:0 0 auto;min-width:max-content}
+.inventory-toolbar{flex:1 1 auto;min-width:0;justify-content:flex-end;flex-wrap:nowrap;gap:6px}
+.inventory-toolbar>.toolbar-btn,.inventory-toolbar>.column-picker>summary{height:32px;min-height:32px;padding:0 9px;font-size:11px;line-height:30px;white-space:nowrap}
+.inventory-toolbar .inventory-search{height:32px;min-width:220px;width:clamp(230px,25vw,340px);max-width:340px;flex:1 1 260px;padding:6px 10px;font-size:12px}
+.column-picker{position:relative;flex:0 0 auto}
+.column-picker>summary{display:block;list-style:none;cursor:pointer}
+.column-picker>summary::-webkit-details-marker{display:none}
+.column-picker-panel{position:absolute;top:calc(100% + 8px);right:0;z-index:1200;width:270px;max-height:min(70vh,500px);overflow:auto;padding:10px;background:var(--card,#fff);border:1px solid var(--line,#dfe6ef);border-radius:12px;box-shadow:0 16px 42px #142b4930;color:var(--text,#203047)}
+.column-picker-panel .picker-title{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--muted,#718096);padding:4px 6px 9px;border-bottom:1px solid var(--line,#e4eaf1);margin-bottom:5px}
+.column-picker-panel label{display:flex;align-items:center;gap:9px;padding:7px 6px;border-radius:7px;font-size:12px;line-height:1.25;cursor:pointer}
+.column-picker-panel label:hover{background:#2878ff0d}
+.column-picker-panel input{width:14px;height:14px;margin:0;accent-color:#2878ff;flex:0 0 auto}
+.counter-head{align-items:center}
+.counter-column-picker-panel{width:310px;max-height:min(72vh,590px)}
+#inventoryResizableTable th,#counterResizableTable th{white-space:nowrap}
+#inventoryResizableTable td,#counterResizableTable td{vertical-align:middle}
+#inventoryResizableTable .map-link{color:#1768d5;font-weight:800;text-decoration:none;white-space:nowrap}
+#inventoryResizableTable .map-link:hover{text-decoration:underline}
+@media(max-width:1180px){.inventory-head{align-items:flex-start;flex-wrap:wrap}.inventory-toolbar{justify-content:flex-start;flex-wrap:wrap}.inventory-toolbar .inventory-search{flex:1 1 260px}}
+@media(max-width:640px){.inventory-toolbar{width:100%}.inventory-toolbar .inventory-search{width:100%;max-width:none;flex-basis:100%}.inventory-heading{min-width:0}.column-picker-panel{left:0;right:auto}}
+
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
 table{width:100%;border-collapse:collapse;min-width:1120px}th,td{text-align:left;padding:14px 16px;border-bottom:1px solid #e9eef5;font-size:13px;vertical-align:top}td:nth-child(1){min-width:180px}td:nth-child(2){min-width:210px}td:nth-child(3){min-width:150px}th{white-space:nowrap}th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#62758c;background:#eef3f8;position:sticky;top:0}tr:last-child td{border-bottom:0}tr.cross-project-dup>td{background:#fffbeb;color:#5f3305}.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2f7;color:#52647a}.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:#94a3b8}.pill.online{background:#e9fbf4;color:#16815e}.pill.online:before{background:#20ad7a}.pill.offline{background:#fff0f1;color:#be4b5b}.pill.offline:before{background:#e45867}.pill.stale{background:#fff7e7;color:#a36b11}.pill.stale:before{background:#f2a51d}.pill.unknown{background:#eef2f7;color:#52647a}.pill.unknown:before{background:#94a3b8}
 .empty{padding:42px 15px;text-align:center;color:var(--muted)}
@@ -878,7 +901,18 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
     </section>
 
     <section id="view-inventario" class="content-card hidden">
-      <div class="content-head"><div><h3>Impresoras en control</h3><small id="inventoryCount">Cargando inventario…</small></div><div class="content-tools"><input id="inventorySearch" class="toolbar-input" type="search" placeholder="Buscar impresora, IP, serie..."><button class="toolbar-btn primary" type="button" onclick="toggleManualPrinterForm(true)">＋ Agregar manual</button><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div></div>
+      <div class="content-head inventory-head">
+        <div class="inventory-heading"><h3>Impresoras en control</h3><small id="inventoryCount">Cargando inventario…</small></div>
+        <div class="content-tools inventory-toolbar">
+          <button class="toolbar-btn primary" type="button" onclick="toggleManualPrinterForm(true)">＋ Agregar manual</button>
+          <details class="column-picker" id="inventoryColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel" id="inventoryColumnOptions"></div></details>
+          <button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button>
+          <button class="toolbar-btn" type="button" onclick="exportProjectCsv()">CSV</button>
+          <button class="toolbar-btn" type="button" onclick="downloadAgentRelease()">↓ Agente</button>
+          <button class="toolbar-btn" type="button" onclick="openInventoryHelp()">? Ayuda</button>
+          <input id="inventorySearch" class="toolbar-input inventory-search" type="search" placeholder="Buscar impresora, modelo, IP o serial…" aria-label="Buscar impresora, modelo, IP o serial">
+        </div>
+      </div>
       <div id="manualPrinterPanel" class="insight hidden" style="margin:0 0 14px;background:#f8fbff">
         <div class="content-head" style="margin-bottom:10px"><div><h3 style="font-size:16px">Agregar impresora manualmente</h3><small>El número de serie identifica el equipo; la IP y el puerto son opcionales.</small></div><button class="toolbar-btn" type="button" onclick="toggleManualPrinterForm(false)">Cerrar</button></div>
         <form id="manualPrinterForm" onsubmit="submitManualPrinter(event)" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end">
@@ -893,7 +927,7 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
         </form>
         <div id="manualPrinterMsg" class="auth-msg muted" aria-live="polite"></div>
       </div>
-      <div class="table-wrap"><table id="inventoryResizableTable" class="column-resize-table"><thead><tr><th>Impresora</th><th>Modelo</th><th>Descripción</th><th>Ciudad</th><th>Conexión</th><th>Controlador</th><th>IP / Puerto</th><th>Serie de fábrica</th><th>MAC de red</th><th>Estado</th><th>Última actualización</th><th></th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
+      <div class="table-wrap"><table id="inventoryResizableTable" class="column-resize-table"><thead><tr><th>Proyecto / Contrato</th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
     </section>
 
     <section id="view-seriales" class="content-card hidden">
@@ -973,8 +1007,12 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
     </section>
 
     <section id="view-contadores" class="content-card hidden">
-      <div class="content-head">
-        <div><h3>Reporte de contadores por período</h3><small>Una fila por impresora activa para todo el período seleccionado. Las impresoras retiradas no aparecen aquí; su historial se conserva en Retiradas. “—” indica que ese contador no fue enviado por el agente y no se reemplaza por cero.</small></div>
+      <div class="content-head counter-head">
+        <div><h3>Reporte de contadores por período</h3><small>Una fila por impresora activa para todo el período seleccionado. Las retiradas no se incluyen y los datos no informados se muestran como «—».</small></div>
+        <div class="content-tools">
+          <details class="column-picker" id="counterColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel counter-column-picker-panel" id="counterColumnOptions"></div></details>
+          
+        </div>
       </div>
       <div class="content-tools" style="margin-bottom:12px;align-items:end">
         <div style="flex:0 0 180px;min-width:160px">
@@ -989,9 +1027,7 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
         <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
       </div>
       <div id="counterMsg" class="muted" style="font-size:12px;margin:2px 0 10px">Elegí un período para consultar.</div>
-      <div class="table-wrap"><table><thead><tr>
-        <th>Proyecto</th><th>Impresora</th><th>Modelo</th><th>Serie</th><th>IP</th><th>Primera lectura desde</th><th>Última lectura hasta</th><th>Contador impresión desde</th><th>Contador impresión hasta</th><th>Total general de impresión</th><th>Total páginas negro</th><th>Total páginas color</th><th>Contador escáner desde</th><th>Contador escáner hasta</th><th>Total escaneos</th><th>Copias desde</th><th>Copias hasta</th><th>Total copias</th>
-      </tr></thead><tbody id="counterBody"></tbody></table></div>
+      <div class="table-wrap"><table id="counterResizableTable" class="column-resize-table"><thead><tr><th>Proyecto / Contrato</th></tr></thead><tbody id="counterBody"></tbody></table></div>
     </section>
 
     <section id="view-retiradas" class="content-card hidden">
@@ -3759,41 +3795,77 @@ function exportRetiredFleetExcel(){
 }
 
 
+function inventoryFirstValue(r,names){
+  for(const name of names){
+    const value=r?.[name];
+    if(value!==null&&value!==undefined&&String(value).trim()!=='')return value;
+  }
+  return '';
+}
+function inventoryFormatValue(value){
+  if(value===null||value===undefined||value==='')return '—';
+  if(typeof value==='boolean')return value?'Sí':'No';
+  return String(value);
+}
+function inventoryLocationText(r){
+  return [
+    inventoryFirstValue(r,['address','street_address','installation_address']),
+    inventoryFirstValue(r,['city','locality']),
+    inventoryFirstValue(r,['province','state','region']),
+    inventoryFirstValue(r,['country','country_name'])
+  ].filter(Boolean).join(', ');
+}
+function inventoryMapUrl(r){
+  const lat=inventoryFirstValue(r,['latitude','lat','geo_lat']);
+  const lng=inventoryFirstValue(r,['longitude','lng','lon','geo_lng']);
+  let query='';
+  if(lat!==''&&lng!=='')query=String(lat)+','+String(lng);
+  else query=inventoryLocationText(r);
+  return query?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query):'';
+}
 const INVENTORY_COLUMN_DEFS=[
   {id:'project',label:'Proyecto / Contrato',value:()=>projects.find(p=>String(p.id)===String(currentProjectId))?.name||'—'},
+  {id:'model',label:'Modelo',value:r=>r.model||r.printer||visiblePrinterName(r)||'—'},
+  {id:'manufacturer',label:'Fabricante',value:r=>inventoryFirstValue(r,['manufacturer','vendor','make'])||'—'},
   {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
-  {id:'license',label:'Licencia',value:()=>{
-    if(accountEntitlements){
-      return (accountEntitlements.plan_name||'Licencia')+' · '+(accountEntitlements.license_active?'Activa':'Inactiva');
-    }
-    const serials=serialByProject.get(currentProjectId)||[];
-    return serials.length?serials.length+' serial(es) activo(s)':'—';
-  }},
-  {id:'machines',label:'Número de máquinas',value:(r,all)=>all.length||'—'},
-  {id:'lastConnection',label:'Última conexión',value:r=>lastContact(r.last_seen_at)},
+  {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
+  {id:'country',label:'País',value:r=>inventoryFirstValue(r,['country','country_name','nation'])||'—'},
+  {id:'province',label:'Provincia',value:r=>inventoryFirstValue(r,['province','state','region'])||'—'},
+  {id:'postalCode',label:'Código Postal',value:r=>inventoryFirstValue(r,['postal_code','postalCode','zip_code','zipcode','zip'])||'—'},
+  {id:'city',label:'Ciudad',value:r=>inventoryFirstValue(r,['city','locality'])||'—'},
+  {id:'address',label:'Dirección',value:r=>inventoryFirstValue(r,['address','street_address','installation_address'])||'—'},
+  {id:'map',label:'Mapa',value:r=>inventoryMapUrl(r)},
+  {id:'floor',label:'Planta',value:r=>inventoryFirstValue(r,['floor','plant','building_floor'])||'—'},
+  {id:'department',label:'Departamento',value:r=>inventoryFirstValue(r,['department','area','division'])||'—'},
+  {id:'contact',label:'Contacto',value:r=>inventoryFirstValue(r,['contact','contact_name','contact_person','responsible_name'])||inventoryFirstValue(accountEntitlements,['contact_name','company_contact'])||'—'},
+  {id:'phone',label:'Teléfono',value:r=>inventoryFirstValue(r,['phone','telephone','contact_phone'])||accountEntitlements?.company_phone||'—'},
+  {id:'mobile',label:'Móvil',value:r=>inventoryFirstValue(r,['mobile','mobile_phone','cell_phone','whatsapp'])||'—'},
+  {id:'email',label:'Correo',value:r=>inventoryFirstValue(r,['email','contact_email','email_address'])||accountEntitlements?.company_email||'—'},
+  {id:'ip',label:'Dirección IP',value:r=>realIpOf(r)||printerIpValue(r)||'—'},
+  {id:'hostname',label:'Hostname',value:r=>inventoryFirstValue(r,['hostname','host_name','computer_name','machine_name'])||'—'},
+  {id:'class',label:'Clase',value:r=>inventoryFirstValue(r,['device_class','printer_class','class','device_type','category'])||connectionLabel(r)||'—'},
   {id:'lastUpdate',label:'Última actualización',value:r=>lastContact(r.reading_at||r.updated_at||r.last_seen_at)},
-  {id:'offlineDays',label:'Días Offline',value:r=>{
-    if(printerState(r)!=='offline')return '—';
-    const date=r.last_seen_at?new Date(r.last_seen_at):null;
-    if(!date||Number.isNaN(date.getTime()))return '—';
-    return Math.max(0,Math.floor((Date.now()-date.getTime())/86400000));
-  }},
-  {id:'type',label:'Tipo',value:r=>connectionLabel(r)||'—'},
-  {id:'location',label:'Localización',value:r=>r.city||r.description||'—'},
-  {id:'contact',label:'Contacto',value:()=>accountEntitlements?.company_email||'—'},
-  {id:'phone',label:'Teléfono',value:()=>accountEntitlements?.company_phone||'—'},
-  {id:'transactions',label:'Transacciones realizadas',value:r=>{
-    const value=r.transaction_count??r.transactions_count??r.print_jobs_count??r.job_count;
-    return value==null?'—':Number(value).toLocaleString('es-PY');
-  }},
-  {id:'agent',label:'Agente',value:r=>r.agent_code||r.machine_name||'—'}
+  {id:'pending',label:'Pendiente',value:r=>inventoryFormatValue(inventoryFirstValue(r,['pending','is_pending','pending_status','pending_reason']))},
+  {id:'installation',label:'Instalación',value:r=>inventoryFirstValue(r,['installation','installation_date','installed_at','install_date','date_installed'])||'—'},
+  {id:'extra1',label:'Extra 1',value:r=>inventoryFirstValue(r,['extra_1','extra1','custom_field_1','custom1','additional_field_1'])||'—'},
+  {id:'extra2',label:'Extra 2',value:r=>inventoryFirstValue(r,['extra_2','extra2','custom_field_2','custom2','additional_field_2'])||'—'},
+  {id:'extra3',label:'Extra 3',value:r=>inventoryFirstValue(r,['extra_3','extra3','custom_field_3','custom3','additional_field_3'])||'—'},
+  {id:'extra4',label:'Extra 4',value:r=>inventoryFirstValue(r,['extra_4','extra4','custom_field_4','custom4','additional_field_4'])||'—'},
+  {id:'extra5',label:'Extra 5',value:r=>inventoryFirstValue(r,['extra_5','extra5','custom_field_5','custom5','additional_field_5'])||'—'},
+  {id:'retire',label:'Retirar',value:()=>''}
 ];
-const INVENTORY_DEFAULT_COLUMNS=['project','serial','lastConnection','lastUpdate','type','location','agent'];
+const INVENTORY_DEFAULT_COLUMNS=['project','model','manufacturer','serial','city','address','ip','hostname','class','lastUpdate','retire'];
 let inventoryVisibleColumns=new Set(INVENTORY_DEFAULT_COLUMNS);
 try{
-  const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns')||'null');
+  const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns-v2')||'null');
   if(Array.isArray(saved))inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
 }catch{}
+function renderInventoryColumnPicker(){
+  const panel=$('inventoryColumnOptions');
+  if(!panel)return;
+  panel.innerHTML='<div class="picker-title">Columnas visibles · Inventario</div>'+
+    INVENTORY_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-inventory-column="'+col.id+'" '+(inventoryVisibleColumns.has(col.id)?'checked':'')+' onchange="setInventoryColumnVisible(\\''+col.id+'\\',this.checked)">'+escapeHtml(col.label)+'</label>').join('');
+}
 function syncInventoryColumnChecks(){
   document.querySelectorAll('[data-inventory-column]').forEach(input=>{
     input.checked=inventoryVisibleColumns.has(input.dataset.inventoryColumn);
@@ -3802,7 +3874,7 @@ function syncInventoryColumnChecks(){
 function setInventoryColumnVisible(id,visible){
   if(!INVENTORY_COLUMN_DEFS.some(col=>col.id===id))return;
   if(visible)inventoryVisibleColumns.add(id);else inventoryVisibleColumns.delete(id);
-  try{localStorage.setItem('atprintix-inventory-visible-columns',JSON.stringify([...inventoryVisibleColumns]))}catch{}
+  try{localStorage.setItem('atprintix-inventory-visible-columns-v2',JSON.stringify([...inventoryVisibleColumns]))}catch{}
   renderAll();
   syncInventoryColumnChecks();
 }
@@ -3811,34 +3883,33 @@ function renderInventoryTable(visibleInventory,activeRows){
   const head=table?.tHead?.rows?.[0];
   const body=$('inventoryBody');
   if(!head||!body)return;
-  const selected=INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id));
-  const columns=[
-    {id:'manufacturer',label:'Impresora'},
-    {id:'model',label:'Modelo'},
-    {id:'ip',label:'IP / Puerto'},
-    {id:'state',label:'Estado'},
-    ...selected,
-    {id:'actions',label:'Acciones'}
-  ];
+  const columns=INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id));
   head.innerHTML=columns.map(col=>'<th>'+escapeHtml(col.label)+'</th>').join('');
   const term=inventorySearch.trim();
   body.innerHTML=visibleInventory.length?visibleInventory.map(r=>{
     const cells=columns.map(col=>{
-      if(col.id==='manufacturer')return '<td>'+escapeHtml(printerManufacturerValue(r)||'—')+'</td>';
-      if(col.id==='model')return '<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="Abrir ficha completa">'+escapeHtml(visiblePrinterName(r)||'—')+'</button></td>';
-      if(col.id==='ip')return '<td class="inventory-nowrap">'+escapeHtml(printerIpPort(r)||'—')+'</td>';
-      if(col.id==='state')return '<td>'+statePill(printerState(r))+'</td>';
-      if(col.id==='actions')return '<td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td>';
-      const definition=INVENTORY_COLUMN_DEFS.find(item=>item.id===col.id);
-      return '<td>'+escapeHtml(definition?(definition.value(r,activeRows)??'—'):'—')+'</td>';
+      if(col.id==='model'){
+        return '<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="Abrir ficha completa">'+escapeHtml(col.value(r))+'</button></td>';
+      }
+      if(col.id==='map'){
+        const url=col.value(r);
+        return '<td>'+(url?'<a class="map-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir mapa</a>':'—')+'</td>';
+      }
+      if(col.id==='retire'){
+        return '<td class="inventory-actions"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button> <button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></td>';
+      }
+      return '<td>'+escapeHtml(inventoryFormatValue(col.value(r,activeRows)))+'</td>';
     }).join('');
     return '<tr data-printer-id="'+escapeHtml(r.printer_id)+'">'+cells+'</tr>';
-  }).join(''):'<tr><td colspan="'+columns.length+'" class="empty">'+(term?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
+  }).join(''):'<tr><td colspan="'+Math.max(1,columns.length)+'" class="empty">'+(term?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
   if(currentView==='inventario'){
     table.dataset.resizePrepared='';
     prepareResizableTable(table);
   }
+  renderInventoryColumnPicker();
+  syncInventoryColumnChecks();
 }
+
 function exportProjectCsv(){
   if(!currentProjectId){atNotify('Seleccioná un proyecto primero.');return}
   const activeRows=dedupePrinterRows(rows.filter(isActivePrinterRecord));
@@ -3848,13 +3919,7 @@ function exportProjectCsv(){
     connectionLabel(r),printerIpValue(r),printerMacValue(r),r.windows_port,r.usb_port,
     printerSerialValue(r),printerDriverValue(r),r.agent_code,r.machine_name
   ].some(v=>String(v??'').toLowerCase().includes(term))):activeRows;
-  const columns=[
-    {label:'Impresora',value:r=>printerManufacturerValue(r)||'—'},
-    {label:'Modelo',value:r=>visiblePrinterName(r)||'—'},
-    {label:'IP / Puerto',value:r=>printerIpPort(r)||'—'},
-    {label:'Estado',value:r=>printerState(r)},
-    ...INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id))
-  ];
+  const columns=INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id)&&col.id!=='retire');
   const csvCell=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
   const lines=[columns.map(col=>csvCell(col.label)).join(';'),...visible.map(r=>columns.map(col=>csvCell(col.value(r))).join(';'))];
   const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
