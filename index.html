@@ -2889,9 +2889,10 @@ async function saveInventoryMetadataInline(el){
 async function setRetired(id,retired){
   const r=rows.find(x=>String(x.printer_id)===String(id))||retiredFleetRows.find(x=>String(x.printer_id)===String(id));if(!r)return;
   const action=retired?'retirar':'restaurar';
+  const printerName=String(r.display_name||r.model||'esta impresora').trim();
   const ok=await askConfirm(retired
-    ? '¿Retirar esta impresora del control? Se conservarán sus datos e historial y quedará en la pestaña Retiradas.'
-    : '¿Restaurar esta impresora al control activo?');
+    ? '¿Estás seguro de retirar «'+printerName+'» del inventario activo?\n\nEl equipo dejará de figurar entre las impresoras en control y pasará a Retiradas. Se conservarán todos sus datos, número de serie e historial. No se eliminará definitivamente.'
+    : '¿Restaurar «'+printerName+'» al inventario activo?');
   if(!ok)return;
   try{
     const result=await api('/rest/v1/rpc/control_set_printer_retired',{
@@ -4339,7 +4340,7 @@ function renderInventoryTable(visibleInventory,activeRows){
         return '<td>'+(url?'<a class="map-link" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir mapa</a>':'—')+'</td>';
       }
       if(col.id==='retire'){
-        return '<td class="inventory-actions">'+(canEditPrinterDescription()?'<button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar datos</button> ':'')+'<button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></td>';
+        return '<td class="inventory-actions"><button class="icon-btn" type="button" title="Retirar esta impresora del inventario activo" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar equipo</button></td>';
       }
       return '<td>'+escapeHtml(inventoryFormatValue(col.value(r,activeRows)))+'</td>';
     }).join('');
