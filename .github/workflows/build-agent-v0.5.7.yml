@@ -1,4 +1,4 @@
-name: Build A&T Printix Agent 0.5.7 — Silent startup (RC1) Silent RC1
+name: Build A&T Printix Agent 0.5.7 — Silent startup (RC1)
 
 on:
   push:
@@ -35,13 +35,13 @@ jobs:
           $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected = "b419fac5c0fc6c565de2ef19882b4f229b3632490285eef646c9611ec4d7f09f"
           if ($actual -ne $expected) { throw "Baseline SHA-256 mismatch: $actual" }
-          $root = Join-Path $env:GITHUB_WORKSPACE "agent-v0.5.7"
+          $root = Join-Path $env:GITHUB_WORKSPACE "agent-v0.5.6"
           New-Item -ItemType Directory -Path $root -Force | Out-Null
           Expand-Archive -Path $zip -DestinationPath $root -Force
           "AGENT_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "Baseline verified and extracted to $root"
 
-      - name: Reconstruct, verify and apply 0.5.7 source patch
+      - name: Reconstruct, verify and apply the original 0.5.6 baseline patch
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -80,7 +80,7 @@ jobs:
           if (-not (Test-Path (Join-Path $env:AGENT_ROOT "InstallerMsi/ATPrintixAgentMsi.wixproj"))) {
             throw "MSI project missing after patch."
           }
-          Write-Host "0.5.7 source patch applied."
+          Write-Host "0.5.6 baseline source patch applied."
 
 
       - name: Reconstruct, verify and apply 0.5.7 silent-startup patch
@@ -215,9 +215,9 @@ jobs:
           name: AandT-Printix-Agent-0.5.7-SILENT-RC1
           if-no-files-found: error
           path: |
-            agent-v0.5.7/Instalar_ATPrinterAgent_v0.5.7.exe
-            agent-v0.5.7/AT_Printix_Agent_0.5.7.msi
-            agent-v0.5.7/SHA256_INSTALLERS.txt
+            agent-v0.5.6/Instalar_ATPrinterAgent_v0.5.7.exe
+            agent-v0.5.6/AT_Printix_Agent_0.5.7.msi
+            agent-v0.5.6/SHA256_INSTALLERS.txt
           retention-days: 30
 
       - name: Publish release from this isolated branch
@@ -234,6 +234,6 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag $exe $msi $hashes --repo pepifer82-cyber/at-printix --clobber
           } else {
-            gh release create $tag $exe $msi $hashes --repo pepifer82-cyber/at-printix --title "A&T Printix Agent 0.5.7 — Silent startup (RC1)" --prerelease --notes "Candidate 0.5.7: silent startup, tray-only UI, cached inventory restore and one-shot initial discovery. Requires physical Windows validation before promotion to stable. EXE selects native x86/x64. MSI is x86 and works on x86/x64 Windows. Unsigned: A&T private code-signing certificate was not available to the build runner." --prerelease --target $env:GITHUB_SHA
+            gh release create $tag $exe $msi $hashes --repo pepifer82-cyber/at-printix --title "A&T Printix Agent 0.5.7 — Silent startup (RC1)" --notes "Candidate 0.5.7: silent startup, tray-only UI, cached inventory restore and one-shot initial discovery. Requires physical Windows validation before promotion to stable. EXE selects native x86/x64. MSI is x86 and works on x86/x64 Windows. Unsigned: A&T private code-signing certificate was not available to the build runner." --prerelease --target $env:GITHUB_SHA
           }
           if ($LASTEXITCODE -ne 0) { throw "GitHub release upload/create failed." }
