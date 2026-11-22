@@ -1,1 +1,1 @@
-Run build after rebuilding exact 0.5.4 patch segments and checksum verification.
+Validate patch by applying it against the exact official 0.5.3 source; stop if git apply check reports conflicts.
