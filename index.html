@@ -4527,6 +4527,31 @@ function counterDisplayValue(value){
   const number=Number(value);
   return Number.isFinite(number)?number.toLocaleString('es-PY'):String(value);
 }
+// Los campos de contadores vacíos se normalizan a cero para permitir
+// sumar/restar en pantalla y en Excel. Los campos de identidad continúan en «—».
+const COUNTER_NUMERIC_COLUMN_IDS=new Set([
+  'totalStart','totalEnd','total',
+  'blackStart','blackEnd','black',
+  'colorStart','colorEnd','color',
+  'a3Start','a3End','a3',
+  'blackA3Start','blackA3End','blackA3',
+  'colorA3Start','colorA3End','colorA3',
+  'scanStart','scanEnd','scan',
+  'blackScanStart','blackScanEnd','blackScan',
+  'colorScanStart','colorScanEnd','colorScan',
+  'faxStart','faxEnd','fax',
+  'blackFaxStart','blackFaxEnd','blackFax',
+  'colorFaxStart','colorFaxEnd','colorFax',
+  'line1Start','line1End','line1',
+  'line2Start','line2End','line2',
+  'line3Start','line3End','line3',
+  'line4Start','line4End','line4'
+]);
+function counterColumnValue(column,row){
+  const value=column.value(row);
+  if(COUNTER_NUMERIC_COLUMN_IDS.has(column.id)&&(value===null||value===undefined||value===''))return 0;
+  return value;
+}
 
 function aggregateCounterPeriodRows(dailyRows){
   const project=projects.find(x=>String(x.id)===String(currentProjectId));
@@ -4707,7 +4732,7 @@ function renderCounterRows(){
       if(col.id==='serial'){
         return '<td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora, no el serial de activación del proyecto" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
       }
-      return '<td>'+escapeHtml(counterDisplayValue(col.value(r)))+'</td>';
+      return '<td>'+escapeHtml(counterDisplayValue(counterColumnValue(col,r)))+'</td>';
     }).join('');
     return '<tr>'+cells+'</tr>';
   }).join('');
@@ -4744,7 +4769,7 @@ async function exportCountersExcel(){
   const report=exportRows.map(r=>Object.fromEntries(
     COUNTER_COLUMN_DEFS
       .filter(col=>counterVisibleColumns.has(col.id))
-      .map(col=>[col.label,col.value(r)])
+      .map(col=>[col.label,counterColumnValue(col,r)])
   ));
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.json_to_sheet(report);
