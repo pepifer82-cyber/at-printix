@@ -2839,7 +2839,7 @@ async function savePrinterInline(el){
     });
 
     el.value=String(updated[field]??'');
-    if(field==='description'&&currentView==='inventario')renderAll();
+    if(['description','city','serial_number'].includes(field)&&currentView==='inventario')renderAll();
 
   }catch(e){
     el.value=previousValues[field];
@@ -2865,7 +2865,7 @@ async function saveInventoryMetadataInline(el){
   const r=rows.find(x=>String(x.printer_id)===id);
   if(!r)return;
   const clean=String(el.value??'').trim();
-  const previous=String((r.inventory_metadata&&r.inventory_metadata[field])??'');
+  const previous=String((r.inventory_metadata&&r.inventory_metadata[field])??el.defaultValue??'');
   if(clean===previous)return;
   el.dataset.saving='1';
   el.disabled=true;
@@ -4170,8 +4170,10 @@ function exportRetiredFleetExcel(){
 
 function inventoryMetadataValue(r,key,aliases=[]){
   const metadata=r?.inventory_metadata&&typeof r.inventory_metadata==='object'?r.inventory_metadata:{};
-  const stored=metadata[key];
-  if(stored!==null&&stored!==undefined&&String(stored).trim()!=='')return stored;
+  if(Object.prototype.hasOwnProperty.call(metadata,key)){
+    const stored=metadata[key];
+    return stored===null||stored===undefined?'':stored;
+  }
   return inventoryFirstValue(r,aliases.length?aliases:[key]);
 }
 function inventoryMetadataRaw(r,key,aliases=[]){
