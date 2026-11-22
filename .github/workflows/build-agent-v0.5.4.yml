@@ -6,7 +6,7 @@ on:
       - agent-v0.5.4-build
     paths:
       - .github/workflows/build-agent-v0.5.4.yml
-      - agent/patches/agent-v0.5.4.patch.gz
+      - agent/patch-parts/*.txt
       - agent/verify-build.ps1
       - agent/RELEASE_NOTES_0.5.4.md
       - agent/rebuild-trigger.txt
@@ -53,20 +53,23 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $patchGz = Join-Path $env:GITHUB_WORKSPACE 'agent/patches/agent-v0.5.4.patch.gz'
-          $patchHash = (Get-FileHash $patchGz -Algorithm SHA256).Hash.ToLower()
-          Write-Host "Patch SHA256: $patchHash"
-          $expectedPatchHash = '414497a7004655d6698485af6f7a29253d4b56434646d05204c35b08b7f35e47'
-          if ($patchHash -ne $expectedPatchHash) { throw 'Uploaded patch hash mismatch.' }
           $patch = Join-Path $env:RUNNER_TEMP 'agent-v0.5.4.patch'
-          $inputStream = [System.IO.File]::OpenRead($patchGz)
+          $partsDir = Join-Path $env:GITHUB_WORKSPACE 'agent/patch-parts'
+          $utf8 = [System.Text.UTF8Encoding]::new($false)
+          $writer = [System.IO.StreamWriter]::new($patch, $false, $utf8)
           try {
-            $gzip = [System.IO.Compression.GzipStream]::new($inputStream, [System.IO.Compression.CompressionMode]::Decompress)
-            try {
-              $outputStream = [System.IO.File]::Create($patch)
-              try { $gzip.CopyTo($outputStream) } finally { $outputStream.Dispose() }
-            } finally { $gzip.Dispose() }
-          } finally { $inputStream.Dispose() }
+            1..8 | ForEach-Object {
+              $part = Join-Path $partsDir ('part-{0:d2}.txt' -f $_)
+              if (-not (Test-Path $part)) { throw "Missing patch segment: $part" }
+              $writer.Write([System.IO.File]::ReadAllText($part, [System.Text.Encoding]::UTF8))
+            }
+          } finally {
+            $writer.Dispose()
+          }
+          $patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLower()
+          Write-Host "Patch SHA256: $patchHash"
+          $expectedPatchHash = '1c043d733110f3ac9a7e597ac598250379e90ec58b6de5419cce602cd05ed31c'
+          if ($patchHash -ne $expectedPatchHash) { throw 'Reconstructed patch hash mismatch.' }
           git -C $env:SOURCE_ROOT apply --check -p2 $patch
           if ($LASTEXITCODE -ne 0) { throw 'Patch validation failed.' }
           git -C $env:SOURCE_ROOT apply -p2 $patch
