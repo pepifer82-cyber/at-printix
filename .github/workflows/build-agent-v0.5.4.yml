@@ -61,13 +61,17 @@ jobs:
             1..8 | ForEach-Object {
               $part = Join-Path $partsDir ('part-{0:d2}.txt' -f $_)
               if (-not (Test-Path $part)) { throw "Missing patch segment: $part" }
-              $writer.Write([System.IO.File]::ReadAllText($part, [System.Text.Encoding]::UTF8))
+              $segment = [System.IO.File]::ReadAllText($part, [System.Text.Encoding]::UTF8)
+              $segment = $segment.Replace("`r`n", "`n").Replace("`r", "`n")
+              $writer.Write($segment)
             }
           } finally {
             $writer.Dispose()
           }
           $patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLower()
-          Write-Host "Reconstructed patch SHA256 (must be reviewed): $patchHash"
+          Write-Host "Reconstructed patch SHA256: $patchHash"
+          $expectedPatchHash = '1c043d733110f3ac9a7e597ac598250379e90ec58b6de5419cce602cd05ed31c'
+          if ($patchHash -ne $expectedPatchHash) { throw 'Reconstructed patch hash mismatch.' }
           git -C $env:SOURCE_ROOT apply --check -p2 $patch
           if ($LASTEXITCODE -ne 0) { throw 'Patch validation failed.' }
           git -C $env:SOURCE_ROOT apply -p2 $patch
