@@ -1953,8 +1953,7 @@ async function loadAllProjectSerials(){
       const status=printerState(r)==='online'?'Conectada':printerState(r)==='offline'?'Desconectada':'Sin verificar';
       const projectId=String(r.project_id||'');
       const others=Array.isArray(r.other_projects)?r.other_projects:[];
-      let projectCell='<b>'+escapeHtml(r.project_name||'Proyecto')+'</b>'
-        +'<div style="margin-top:3px"><button class="icon-btn" type="button" onclick="openProjectInventory('+escapeHtml(JSON.stringify(projectId))+')">Ver inventario</button></div>';
+      let projectCell='<b>'+escapeHtml(r.project_name||'Proyecto')+'</b>';
       if(others.length){
         projectCell+='<div style="font-size:10.5px;margin-top:4px;max-width:260px"><span style="background:#fef3c7;color:#92400e;font-weight:700;padding:1px 7px;border-radius:999px;font-size:10.5px">⚠ Asignación duplicada: '+escapeHtml(others.join(', '))+'</span><br>Retírala de los proyectos incorrectos antes de reasignarla.\n'+others.map(name=>{const match=all.find(x=>x.project_name===name&&((printerNormalizedSerial(r)&&printerNormalizedSerial(x)===printerNormalizedSerial(r))||(printerNormalizedMac(r)&&printerNormalizedMac(x)===printerNormalizedMac(r))));return match?'<button class="icon-btn" style="margin:4px 4px 0 0" type="button" onclick="openProjectInventory('+escapeHtml(JSON.stringify(String(match.project_id)))+')">Abrir '+escapeHtml(name)+' para retirar</button>':''}).join('')+'</div>';
       }
