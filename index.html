@@ -1849,7 +1849,7 @@ async function loadProjectData(){
   }catch(e){
     console.error('Error cargando impresoras del proyecto:',e);
     if($('inventoryCount'))$('inventoryCount').textContent='Error al cargar el inventario: '+(e?.message||e);
-    if($('inventoryBody'))$('inventoryBody').innerHTML='<tr><td colspan="12" class="empty">No se pudo cargar el inventario. Presioná Actualizar y revisá la conexión.</td></tr>';
+    if($('inventoryBody'))$('inventoryBody').innerHTML='<tr><td colspan="18" class="empty">No se pudo cargar el inventario. Presioná Actualizar y revisá la conexión.</td></tr>';
   }
 }
 function isRealPrinter(r){
@@ -3756,6 +3756,128 @@ function exportRetiredFleetExcel(){
   XLSX.utils.book_append_sheet(wb,ws,'Todos los equipos');
   const stamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,'AT_Printix_Todos_los_equipos_retirados_'+stamp+'.xlsx');
+}
+
+
+const INVENTORY_COLUMN_DEFS=[
+  {id:'project',label:'Proyecto / Contrato',value:()=>projects.find(p=>String(p.id)===String(currentProjectId))?.name||'—'},
+  {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
+  {id:'license',label:'Licencia',value:()=>{
+    if(accountEntitlements){
+      return (accountEntitlements.plan_name||'Licencia')+' · '+(accountEntitlements.license_active?'Activa':'Inactiva');
+    }
+    const serials=serialByProject.get(currentProjectId)||[];
+    return serials.length?serials.length+' serial(es) activo(s)':'—';
+  }},
+  {id:'machines',label:'Número de máquinas',value:()=>{
+    const machines=new Set(agentRows.map(a=>String(a.machine_name||a.agent_code||'').trim()).filter(Boolean));
+    return machines.size||'—';
+  }},
+  {id:'lastConnection',label:'Última conexión',value:r=>lastContact(r.last_seen_at)},
+  {id:'lastUpdate',label:'Última actualización',value:r=>lastContact(r.reading_at||r.updated_at||r.last_seen_at)},
+  {id:'offlineDays',label:'Días Offline',value:r=>{
+    if(printerState(r)!=='offline')return '—';
+    const date=r.last_seen_at?new Date(r.last_seen_at):null;
+    if(!date||Number.isNaN(date.getTime()))return '—';
+    return Math.max(0,Math.floor((Date.now()-date.getTime())/86400000));
+  }},
+  {id:'type',label:'Tipo',value:r=>connectionLabel(r)||'—'},
+  {id:'location',label:'Localización',value:r=>r.city||r.description||'—'},
+  {id:'contact',label:'Contacto',value:()=>accountEntitlements?.company_email||'—'},
+  {id:'phone',label:'Teléfono',value:()=>accountEntitlements?.company_phone||'—'},
+  {id:'transactions',label:'Transacciones realizadas',value:r=>{
+    const value=r.transaction_count??r.transactions_count??r.print_jobs_count??r.job_count;
+    return value==null?'—':Number(value).toLocaleString('es-PY');
+  }},
+  {id:'agent',label:'Agente',value:r=>r.agent_code||r.machine_name||'—'}
+];
+const INVENTORY_DEFAULT_COLUMNS=['project','serial','lastConnection','lastUpdate','type','location','agent'];
+let inventoryVisibleColumns=new Set(INVENTORY_DEFAULT_COLUMNS);
+try{
+  const saved=JSON.parse(localStorage.getItem('atprintix-inventory-visible-columns')||'null');
+  if(Array.isArray(saved))inventoryVisibleColumns=new Set(saved.filter(id=>INVENTORY_COLUMN_DEFS.some(col=>col.id===id)));
+}catch{}
+function syncInventoryColumnChecks(){
+  document.querySelectorAll('[data-inventory-column]').forEach(input=>{
+    input.checked=inventoryVisibleColumns.has(input.dataset.inventoryColumn);
+  });
+}
+function setInventoryColumnVisible(id,visible){
+  if(!INVENTORY_COLUMN_DEFS.some(col=>col.id===id))return;
+  if(visible)inventoryVisibleColumns.add(id);else inventoryVisibleColumns.delete(id);
+  try{localStorage.setItem('atprintix-inventory-visible-columns',JSON.stringify([...inventoryVisibleColumns]))}catch{}
+  renderAll();
+  syncInventoryColumnChecks();
+}
+function renderInventoryTable(visibleInventory,activeRows){
+  const table=$('inventoryResizableTable');
+  const head=table?.tHead?.rows?.[0];
+  const body=$('inventoryBody');
+  if(!head||!body)return;
+  const selected=INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id));
+  const columns=[
+    {id:'manufacturer',label:'Impresora'},
+    {id:'model',label:'Modelo'},
+    {id:'ip',label:'IP / Puerto'},
+    {id:'state',label:'Estado'},
+    ...selected,
+    {id:'actions',label:'Acciones'}
+  ];
+  head.innerHTML=columns.map(col=>'<th>'+escapeHtml(col.label)+'</th>').join('');
+  const term=inventorySearch.trim();
+  body.innerHTML=visibleInventory.length?visibleInventory.map(r=>{
+    const cells=columns.map(col=>{
+      if(col.id==='manufacturer')return '<td>'+escapeHtml(printerManufacturerValue(r)||'—')+'</td>';
+      if(col.id==='model')return '<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(r.printer_id))+')" title="Abrir ficha completa">'+escapeHtml(visiblePrinterName(r)||'—')+'</button></td>';
+      if(col.id==='ip')return '<td class="inventory-nowrap">'+escapeHtml(printerIpPort(r)||'—')+'</td>';
+      if(col.id==='state')return '<td>'+statePill(printerState(r))+'</td>';
+      if(col.id==='actions')return '<td class="inventory-actions"><div class="inventory-action-group"><button class="icon-btn" type="button" onclick="openPrinterEditor('+escapeHtml(JSON.stringify(r.printer_id))+')">Editar</button><button class="icon-btn" type="button" onclick="setRetired('+escapeHtml(JSON.stringify(r.printer_id))+',true)">Retirar</button></div></td>';
+      const col=INVENTORY_COLUMN_DEFS.find(item=>item.id===col.id);
+      return '<td>'+escapeHtml(col?col.value(r)??'—':'—')+'</td>';
+    }).join('');
+    return '<tr data-printer-id="'+escapeHtml(r.printer_id)+'">'+cells+'</tr>';
+  }).join(''):'<tr><td colspan="'+columns.length+'" class="empty">'+(term?'No hay coincidencias.':'No hay impresoras en control.')+'</td></tr>';
+  if(currentView==='inventario'){
+    table.dataset.resizePrepared='';
+    prepareResizableTable(table);
+  }
+}
+function exportProjectCsv(){
+  if(!currentProjectId){atNotify('Seleccioná un proyecto primero.');return}
+  const activeRows=dedupePrinterRows(rows.filter(isActivePrinterRecord));
+  const term=inventorySearch.trim().toLowerCase();
+  const visible=term?activeRows.filter(r=>[
+    visiblePrinterName(r),r.display_name,r.description,r.city,r.manufacturer,r.model,
+    connectionLabel(r),printerIpValue(r),printerMacValue(r),r.windows_port,r.usb_port,
+    printerSerialValue(r),printerDriverValue(r),r.agent_code,r.machine_name
+  ].some(v=>String(v??'').toLowerCase().includes(term))):activeRows;
+  const columns=[
+    {label:'Impresora',value:r=>printerManufacturerValue(r)||'—'},
+    {label:'Modelo',value:r=>visiblePrinterName(r)||'—'},
+    {label:'IP / Puerto',value:r=>printerIpPort(r)||'—'},
+    {label:'Estado',value:r=>printerState(r)},
+    ...INVENTORY_COLUMN_DEFS.filter(col=>inventoryVisibleColumns.has(col.id))
+  ];
+  const csvCell=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
+  const lines=[columns.map(col=>csvCell(col.label)).join(';'),...visible.map(r=>columns.map(col=>csvCell(col.value(r))).join(';'))];
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  const project=projects.find(p=>String(p.id)===String(currentProjectId));
+  const safe=String(project?.name||'proyecto').replace(/[^a-z0-9_-]+/gi,'_').slice(0,50)||'proyecto';
+  link.href=url;link.download='AT_Printix_Inventario_'+safe+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+  atNotify('CSV generado correctamente.','success');
+}
+function downloadAgentRelease(){
+  window.open('https://github.com/pepifer82-cyber/at-printix/releases/latest','_blank','noopener');
+}
+function openInventoryHelp(){
+  showView('asistente');
+  const question=$('aiQuestion');
+  if(question){
+    question.value='Ayudame a interpretar el inventario de impresoras, el selector de columnas y los datos de conexión de A&T Printix.';
+    question.focus();
+  }
 }
 
 function renderAll(){
