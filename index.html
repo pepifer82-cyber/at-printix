@@ -5687,8 +5687,8 @@ function renderRenewalPendingBadge(requests){
   const status=$('renewalAlertStatus');
   if(status){
     status.textContent=pending.length
-      ?'⚠ '+pending.length+' solicitud(es) requieren atención. El indicador se actualiza automáticamente.'
-      :'No hay solicitudes pendientes. La bandeja se revisa automáticamente cada 30 segundos.';
+      ?'⚠ '+pending.length+' solicitud(es) nueva(s) sin leer. Marcá como leída para quitar el aviso; el pedido seguirá guardado.'
+      :'No hay solicitudes nuevas sin leer. La bandeja se revisa automáticamente cada 30 segundos.';
     status.style.color=pending.length?'#c53040':'';
     status.style.fontWeight=pending.length?'800':'';
   }
