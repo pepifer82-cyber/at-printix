@@ -1825,6 +1825,7 @@ function showView(view){
   };
   ['counterFrom','counterTo'].forEach(id=>{
     $(id).onchange=()=>{
+      clearPendingCounterReport();
       if($('counterPeriodSelect'))$('counterPeriodSelect').value='';
       updateCounterFilterButtonLabels();
       if($('counterMsg'))$('counterMsg').textContent='Fechas preparadas. Pulsá Consultar para cargar el reporte.';
@@ -4253,7 +4254,14 @@ function setDefaultCounterDates(){
   if($('counterTo'))$('counterTo').value='';
   updateCounterFilterButtonLabels();
 }
+function clearPendingCounterReport(){
+  counterRows=[];
+  counterRowsPeriod=null;
+  counterLastError='';
+  renderCounterRows();
+}
 function applyCounterPeriodSelection(mode){
+  clearPendingCounterReport();
   const now=new Date();
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   let from='',to='';
