@@ -4570,6 +4570,60 @@ function startRemoteHistoryPolling(){
 }
 function closeAgentRemoteConfig(){const m=$('remoteConfigModal');if(m)m.style.display='none';stopRemoteHistoryPolling()}
 function remoteIpv4(v){const p=String(v||'').trim().split('.');return p.length===4&&p.every(x=>/^\d{1,3}$/.test(x)&&Number(x)>=0&&Number(x)<=255)}
+function remoteIpv4Number(value){return String(value||'').split('.').reduce((n,p)=>n*256+Number(p),0)}
+function remoteRangeParts(value){
+ if(value&&typeof value==='object'){
+  const start=String(value.start||value.from||'').trim(),end=String(value.end||value.to||'').trim();
+  return remoteIpv4(start)&&remoteIpv4(end)?{start,end}:null;
+ }
+ const raw=String(value||'').trim();
+ const match=raw.match(/^\s*((?:\d{1,3}\.){3}\d{1,3})\s*(?:-|–|—|\.\.\.)\s*((?:\d{1,3}\.){3}\d{1,3})\s*$/);
+ if(!match||!remoteIpv4(match[1])||!remoteIpv4(match[2]))return null;
+ return {start:match[1],end:match[2]};
+}
+function remoteRangeKey(range){return String(range.start)+'|'+String(range.end)}
+function renderRemoteNetworkLists(state,commands){
+ const ips=new Map(),ranges=new Map();
+ (Array.isArray(state?.network_ips)?state.network_ips:[]).forEach(value=>{
+  const ip=String(value||'').trim();if(remoteIpv4(ip))ips.set(ip,{value:ip,pending:false});
+ });
+ const primary=remoteRangeParts({start:state?.network_range_start,end:state?.network_range_end});
+ if(primary)ranges.set(remoteRangeKey(primary),{...primary,pending:false});
+ (Array.isArray(state?.network_ranges)?state.network_ranges:[]).forEach(value=>{
+  const range=remoteRangeParts(value);
+  if(range)ranges.set(remoteRangeKey(range),{...range,pending:false});
+  else if(typeof value==='string'&&value.trim()){
+    const raw=value.trim();ranges.set('raw|'+raw,{raw,pending:false});
+  }
+ });
+ // Los comandos en cola se superponen al último estado reportado. Así el usuario
+ // ve inmediatamente las altas/bajas pedidas, sin fingir que el agente ya las aplicó.
+ [...(Array.isArray(commands)?commands:[])].sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||''))).forEach(command=>{
+  if(!['queued','running'].includes(String(command.status||'')))return;
+  const payload=command.payload||{};
+  if(command.command==='add_ip'&&remoteIpv4(payload.ip))ips.set(String(payload.ip),{value:String(payload.ip),pending:true});
+  if(command.command==='remove_ip'&&payload.ip)ips.delete(String(payload.ip));
+  if(command.command==='add_ip_range'){
+    const range=remoteRangeParts(payload);
+    if(range)ranges.set(remoteRangeKey(range),{...range,pending:true});
+  }
+  if(command.command==='remove_ip_range'){
+    const range=remoteRangeParts(payload);
+    if(range)ranges.delete(remoteRangeKey(range));
+  }
+ });
+ const ipList=[...ips.values()].sort((a,b)=>remoteIpv4Number(a.value)-remoteIpv4Number(b.value));
+ const rangeList=[...ranges.values()].sort((a,b)=>String(a.start||a.raw).localeCompare(String(b.start||b.raw)));
+ const ipCount=$('remoteIpCount'),rangeCount=$('remoteRangeCount'),ipHost=$('remoteIpList'),rangeHost=$('remoteRangeList');
+ if(ipCount)ipCount.textContent='('+ipList.length+')';
+ if(rangeCount)rangeCount.textContent='('+rangeList.length+')';
+ if(ipHost)ipHost.innerHTML=ipList.length?ipList.map(item=>'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:#f8fafc;border:1px solid #e6edf5;border-radius:8px"><span><b>'+escapeHtml(item.value)+'</b>'+(item.pending?' <small style="color:#a16207">· pendiente de aplicar</small>':'')+'</span><button type="button" class="icon-btn" data-remote-remove-ip="'+escapeHtml(item.value)+'">Quitar</button></div>').join(''):'<span class="muted">No hay IP individuales configuradas.</span>';
+ if(rangeHost)rangeHost.innerHTML=rangeList.length?rangeList.map(item=>{
+  const label=item.raw||item.start+' – '+item.end;
+  const button=item.raw?'':'<button type="button" class="icon-btn" data-remote-remove-range-start="'+escapeHtml(item.start)+'" data-remote-remove-range-end="'+escapeHtml(item.end)+'">Quitar</button>';
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;background:#f8fafc;border:1px solid #e6edf5;border-radius:8px"><span><b>'+escapeHtml(label)+'</b>'+(item.pending?' <small style="color:#a16207">· pendiente de aplicar</small>':'')+'</span>'+button+'</div>';
+ }).join(''):'<span class="muted">No hay rangos configurados.</span>';
+}
 function remoteCommandTitle(c){return({set_usb_control:'Configuración USB',add_ip:'Agregar IP',remove_ip:'Quitar IP',add_ip_range:'Agregar rango IP',remove_ip_range:'Quitar rango IP',set_network_scan:'Búsqueda de red',set_interval:'Intervalo de envío',rescan_now:'Buscar ahora',update_now:'Actualizar agente'})[c]||c}
 function remoteCommandStatus(s){return({queued:'En espera',running:'En proceso',done:'Aplicado',failed:'Error',cancelled:'Cancelado'})[s]||s||'Desconocido'}
 function ensureAgentRemoteModal(){
@@ -4581,8 +4635,8 @@ function ensureAgentRemoteModal(){
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
  <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">USB</h3><label style="display:flex;gap:9px;align-items:center;font-size:13px"><input type="checkbox" id="remoteUsbEnabled" checked> Buscar impresoras USB</label><button class="toolbar-btn primary" style="margin-top:12px" onclick="submitRemoteUsb()">Aplicar USB</button></div>
  <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Búsqueda por IP / red</h3><label style="display:flex;gap:9px;align-items:center;font-size:13px"><input type="checkbox" id="remoteNetworkEnabled" checked> Buscar por IP y rangos</label><button class="toolbar-btn primary" style="margin-top:12px" onclick="submitRemoteNetwork()">Aplicar red</button></div>
- <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">IP individual</h3><input id="remoteIpValue" class="toolbar-input" style="width:100%;margin:4px 0 9px" placeholder="Ej. 192.168.1.25" inputmode="decimal"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="toolbar-btn primary" onclick="submitRemoteIp('add_ip')">Agregar IP</button><button class="toolbar-btn" onclick="submitRemoteIp('remove_ip')">Quitar IP</button></div></div>
- <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Rangos de router</h3><input id="remoteRangeStart" class="toolbar-input" style="width:100%;margin:4px 0 7px" placeholder="IP inicial · 192.168.1.1" inputmode="decimal"><input id="remoteRangeEnd" class="toolbar-input" style="width:100%;margin:0 0 9px" placeholder="IP final · 192.168.1.254" inputmode="decimal"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="toolbar-btn primary" onclick="submitRemoteRange('add_ip_range')">Agregar rango</button><button class="toolbar-btn" onclick="submitRemoteRange('remove_ip_range')">Quitar rango</button></div></div>
+ <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">IP individual</h3><input id="remoteIpValue" class="toolbar-input" style="width:100%;margin:4px 0 9px" placeholder="Ej. 192.168.1.25" inputmode="decimal"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="toolbar-btn primary" onclick="submitRemoteIp('add_ip')">Agregar IP</button><button class="toolbar-btn" onclick="submitRemoteIp('remove_ip')">Quitar IP</button></div><div style="margin-top:12px;border-top:1px solid #e6edf5;padding-top:10px"><div style="font-weight:800;font-size:12px;margin-bottom:7px">Lista de IP individuales <span id="remoteIpCount" style="color:#64748b;font-weight:500"></span></div><div id="remoteIpList" style="display:grid;gap:6px;font-size:12px"><span class="muted">Cargando IP guardadas…</span></div></div></div>
+ <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Rangos de router</h3><input id="remoteRangeStart" class="toolbar-input" style="width:100%;margin:4px 0 7px" placeholder="IP inicial · 192.168.1.1" inputmode="decimal"><input id="remoteRangeEnd" class="toolbar-input" style="width:100%;margin:0 0 9px" placeholder="IP final · 192.168.1.254" inputmode="decimal"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="toolbar-btn primary" onclick="submitRemoteRange('add_ip_range')">Agregar rango</button><button class="toolbar-btn" onclick="submitRemoteRange('remove_ip_range')">Quitar rango</button></div><div style="margin-top:12px;border-top:1px solid #e6edf5;padding-top:10px"><div style="font-weight:800;font-size:12px;margin-bottom:7px">Rangos configurados <span id="remoteRangeCount" style="color:#64748b;font-weight:500"></span></div><div id="remoteRangeList" style="display:grid;gap:6px;font-size:12px"><span class="muted">Cargando rangos…</span></div></div></div>
  <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Frecuencia de envío</h3><select id="remoteInterval" class="toolbar-input" style="width:100%;margin-bottom:10px"><option value="1800">Cada 30 minutos</option><option value="3600">Cada 1 hora</option><option value="7200">Cada 2 horas</option></select><button class="toolbar-btn primary" onclick="submitRemoteInterval()">Aplicar intervalo</button></div>
  <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Acción inmediata</h3><div style="font-size:12px;color:#64748b;margin-bottom:10px">Inicia un escaneo sin esperar al siguiente intervalo.</div><button class="toolbar-btn primary" onclick="queueAgentCommand('rescan_now',{})">Iniciar búsqueda ahora</button></div>
  <div style="border:1px solid #dce6f2;border-radius:12px;padding:14px"><h3 style="margin:0 0 10px;font-size:15px">Actualización remota</h3><div style="font-size:12px;color:#64748b;margin-bottom:10px">Solo para agentes 0.3.6 o superior. Descarga el lanzamiento más reciente, verifica SHA-256 y ejecuta el instalador.</div><button class="toolbar-btn primary" onclick="queueAgentCommand('update_now',{})">Actualizar agente</button></div>
@@ -4605,7 +4659,7 @@ async function openAgentRemoteConfig(agentId){
 async function refreshAgentRemoteCommands(prefill){
  if(!remoteConfigAgentId||!currentProjectId)return;
  try{
-  const list=await api('/rest/v1/printer_agent_commands?select=id,command,payload,status,created_at,completed_at,result_message&project_id=eq.'+encodeURIComponent(currentProjectId)+'&agent_id=eq.'+encodeURIComponent(remoteConfigAgentId)+'&order=created_at.desc&limit=20');
+  const list=await api('/rest/v1/printer_agent_commands?select=id,command,payload,status,created_at,completed_at,result_message&project_id=eq.'+encodeURIComponent(currentProjectId)+'&agent_id=eq.'+encodeURIComponent(remoteConfigAgentId)+'&order=created_at.desc&limit=100');
   // Refresh the agent snapshot while the modal is open so acknowledged remote changes appear without closing it.
   const freshAgents=await api('/rest/v1/printer_agents?select=id,remote_config&id=eq.'+encodeURIComponent(remoteConfigAgentId)+'&limit=1');
   const freshAgent=Array.isArray(freshAgents)?freshAgents[0]:null;
@@ -4613,31 +4667,46 @@ async function refreshAgentRemoteCommands(prefill){
   if(freshAgent&&localAgent)localAgent.remote_config=freshAgent.remote_config||{};
   const state=(freshAgent?.remote_config)||(localAgent?.remote_config)||{};
   const hasPending=(list||[]).some(c=>['queued','running'].includes(c.status));
+  renderRemoteNetworkLists(state,list||[]);
   if(state.reported_at&&(prefill||!hasPending)){
     $('remoteUsbEnabled').checked=state.usb_control_enabled===true;
     $('remoteNetworkEnabled').checked=state.network_scan_enabled===true;
     $('remoteInterval').value=String([1800,3600,7200].includes(Number(state.sync_interval_seconds))?Number(state.sync_interval_seconds):1800);
-    const ips=Array.isArray(state.network_ips)?state.network_ips:[],ranges=Array.isArray(state.network_ranges)?state.network_ranges:[];
-    $('remoteAgentSnapshot').innerHTML='<b>Configuración aplicada/reportada: '+escapeHtml(new Date(state.reported_at).toLocaleString())+'</b><br>USB: '+(state.usb_control_enabled?'activado':'desactivado')+' · Red: '+(state.network_scan_enabled?'activada':'desactivada')+' · Intervalo: '+escapeHtml(Number(state.sync_interval_seconds)/60)+' min<br>IPs: '+escapeHtml(ips.join(', ')||'ninguna')+'<br>Rango principal: '+escapeHtml(state.network_range_start&&state.network_range_end?state.network_range_start+' - '+state.network_range_end:'ninguno')+'<br>Rangos adicionales: '+escapeHtml(ranges.join('; ')||'ninguno');
+    $('remoteAgentSnapshot').innerHTML='<b>Última comunicación: '+escapeHtml(new Date(state.reported_at).toLocaleString())+'</b><br>USB: '+(state.usb_control_enabled?'activado':'desactivado')+' · Red: '+(state.network_scan_enabled?'activada':'desactivada')+' · Intervalo: '+escapeHtml(Number(state.sync_interval_seconds)/60)+' min';
   }else if(prefill&&!state.reported_at){
     const u=(list||[]).find(c=>c.command==='set_usb_control'),n=(list||[]).find(c=>c.command==='set_network_scan'),i=(list||[]).find(c=>c.command==='set_interval');
     if(u&&typeof u.payload?.enabled==='boolean')$('remoteUsbEnabled').checked=u.payload.enabled;
     if(n&&typeof n.payload?.enabled==='boolean')$('remoteNetworkEnabled').checked=n.payload.enabled;
     if(i&&[1800,3600,7200].includes(Number(i.payload?.seconds)))$('remoteInterval').value=String(i.payload.seconds);
-    $('remoteAgentSnapshot').textContent='Esta instalación todavía no reportó su configuración. Se mostrarán los valores aplicados cuando el agente confirme el primer cambio remoto.';
+    $('remoteAgentSnapshot').textContent='Esta instalación todavía no reportó su configuración. Las direcciones pendientes aparecen en las listas mientras el agente las aplica.';
   }else if(hasPending){
-    $('remoteAgentSnapshot').innerHTML='Hay cambios esperando o procesándose. Los controles se mantendrán como los elegiste hasta que el agente confirme el resultado.';
+    $('remoteAgentSnapshot').innerHTML='Hay cambios esperando o procesándose. Las listas muestran las altas y bajas solicitadas; el agente confirmará su aplicación al sincronizar.';
   }
-  $('remoteCommandHistory').innerHTML=(list||[]).length?list.map(c=>{const color=c.status==='done'?'#087443':c.status==='failed'?'#b42335':'#946200';return '<div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;padding:7px 3px;border-bottom:1px solid #f1f5f9"><div><b>#'+escapeHtml(c.id)+' · '+escapeHtml(remoteCommandTitle(c.command))+'</b><div style="color:#64748b;margin-top:2px">'+escapeHtml(c.result_message||JSON.stringify(c.payload||{}))+'</div></div><div style="text-align:right;white-space:nowrap;color:'+color+';font-weight:800">'+escapeHtml(remoteCommandStatus(c.status))+'<div style="font-size:10px;color:#64748b;font-weight:400">'+escapeHtml(c.completed_at?new Date(c.completed_at).toLocaleString():new Date(c.created_at).toLocaleString())+'</div></div></div>'}).join(''):'<div style="padding:8px;color:#64748b">Todavía no hay comandos para esta instalación.</div>';
+  const ipHost=$('remoteIpList'),rangeHost=$('remoteRangeList');
+  [ipHost,rangeHost].forEach(host=>{
+    if(!host||host.dataset.removeBound==='1')return;
+    host.addEventListener('click',event=>{
+      const ipButton=event.target.closest('[data-remote-remove-ip]');
+      if(ipButton){void removeRemoteIpFromList(ipButton.dataset.remoteRemoveIp);return}
+      const rangeButton=event.target.closest('[data-remote-remove-range-start]');
+      if(rangeButton)void removeRemoteRangeFromList(rangeButton.dataset.remoteRemoveRangeStart,rangeButton.dataset.remoteRemoveRangeEnd);
+    });
+    host.dataset.removeBound='1';
+  });
+  $('remoteCommandHistory').innerHTML=(list||[]).length?list.slice(0,30).map(c=>{const color=c.status==='done'?'#087443':c.status==='failed'?'#b42335':'#946200';return '<div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;padding:7px 3px;border-bottom:1px solid #f1f5f9"><div><b>#'+escapeHtml(c.id)+' · '+escapeHtml(remoteCommandTitle(c.command))+'</b><div style="color:#64748b;margin-top:2px">'+escapeHtml(c.result_message||JSON.stringify(c.payload||{}))+'</div></div><div style="text-align:right;white-space:nowrap;color:'+color+';font-weight:800">'+escapeHtml(remoteCommandStatus(c.status))+'<div style="font-size:10px;color:#64748b;font-weight:400">'+escapeHtml(c.completed_at?new Date(c.completed_at).toLocaleString():new Date(c.created_at).toLocaleString())+'</div></div></div>'}).join(''):'<div style="padding:8px;color:#64748b">Todavía no hay comandos para esta instalación.</div>';
  }catch(e){$('remoteCommandHistory').textContent='No se pudo leer el historial. Verificá que tu usuario administre este proyecto.'}
 }
 async function queueAgentCommand(command,payload){
- const msg=$('remoteConfigMsg');if(!remoteConfigAgentId||!currentProjectId){msg.textContent='Seleccioná un agente y un proyecto.';msg.className='auth-msg danger';return}
- const a=agentRows.find(x=>String(x.id)===String(remoteConfigAgentId));if(!a||a.active===false){msg.textContent='El agente está inactivo.';msg.className='auth-msg danger';return}
- if(command==='update_now'){const v=String(a.app_version||'0.0.0').split('.').map(x=>Number(x)||0);const supported=v[0]>0||v[1]>3||(v[1]===3&&v[2]>=6);if(!supported){msg.textContent='Instalá primero el agente 0.3.6 en esta PC. Las versiones anteriores no admiten actualización remota.';msg.className='auth-msg danger';return}}
+ const msg=$('remoteConfigMsg');if(!remoteConfigAgentId||!currentProjectId){msg.textContent='Seleccioná un agente y un proyecto.';msg.className='auth-msg danger';return null}
+ const a=agentRows.find(x=>String(x.id)===String(remoteConfigAgentId));if(!a||a.active===false){msg.textContent='El agente está inactivo.';msg.className='auth-msg danger';return null}
+ if(command==='update_now'){const v=String(a.app_version||'0.0.0').split('.').map(x=>Number(x)||0);const supported=v[0]>0||v[1]>3||(v[1]===3&&v[2]>=6);if(!supported){msg.textContent='Instalá primero el agente 0.3.6 en esta PC. Las versiones anteriores no admiten actualización remota.';msg.className='auth-msg danger';return null}}
  msg.textContent='Guardando comando en Supabase…';msg.className='auth-msg muted';
- try{await api('/rest/v1/printer_agent_commands',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({project_id:currentProjectId,agent_id:remoteConfigAgentId,command,payload,created_by:currentUser?.id})});msg.textContent='Comando guardado. El agente lo consultará en unos 30 segundos; si está apagado, al conectarse.';msg.className='auth-msg ok';await refreshAgentRemoteCommands(false)}
- catch(e){msg.textContent='No se pudo encolar el comando: '+e.message;msg.className='auth-msg danger'}
+ try{
+  const inserted=await api('/rest/v1/printer_agent_commands',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({project_id:currentProjectId,agent_id:remoteConfigAgentId,command,payload,created_by:currentUser?.id})});
+  msg.textContent='Comando guardado. El agente lo consultará en unos 30 segundos; si está apagado, al conectarse.';msg.className='auth-msg ok';
+  await refreshAgentRemoteCommands(false);
+  return Array.isArray(inserted)?inserted[0]:inserted;
+ }catch(e){msg.textContent='No se pudo encolar el comando: '+e.message;msg.className='auth-msg danger';return null}
 }
 function submitRemoteUsb(){queueAgentCommand('set_usb_control',{enabled:$('remoteUsbEnabled').checked})}
 function submitRemoteNetwork(){queueAgentCommand('set_network_scan',{enabled:$('remoteNetworkEnabled').checked})}
@@ -4656,8 +4725,26 @@ async function sendRescanForAgent(agentId){
  // No arranca el poller si el modal se cerró mientras la solicitud estaba en curso.
  startRemoteHistoryPolling();
 }
-function submitRemoteIp(command){const ip=$('remoteIpValue').value.trim();if(!remoteIpv4(ip)){$('remoteConfigMsg').textContent='Ingresá una IPv4 válida, por ejemplo 192.168.1.25.';$('remoteConfigMsg').className='auth-msg danger';return}queueAgentCommand(command,{ip})}
-function submitRemoteRange(command){const start=$('remoteRangeStart').value.trim(),end=$('remoteRangeEnd').value.trim(),num=s=>s.split('.').reduce((n,p)=>n*256+Number(p),0);if(!remoteIpv4(start)||!remoteIpv4(end)||num(start)>num(end)){$('remoteConfigMsg').textContent='Ingresá un rango IPv4 válido y ordenado.';$('remoteConfigMsg').className='auth-msg danger';return}queueAgentCommand(command,{start,end})}
+async function submitRemoteIp(command){
+ const ip=$('remoteIpValue').value.trim();
+ if(!remoteIpv4(ip)){$('remoteConfigMsg').textContent='Ingresá una IPv4 válida, por ejemplo 192.168.1.25.';$('remoteConfigMsg').className='auth-msg danger';return}
+ const inserted=await queueAgentCommand(command,{ip});
+ if(inserted&&command==='add_ip')$('remoteIpValue').value='';
+}
+async function submitRemoteRange(command){
+ const start=$('remoteRangeStart').value.trim(),end=$('remoteRangeEnd').value.trim();
+ if(!remoteIpv4(start)||!remoteIpv4(end)||remoteIpv4Number(start)>remoteIpv4Number(end)){$('remoteConfigMsg').textContent='Ingresá un rango IPv4 válido y ordenado.';$('remoteConfigMsg').className='auth-msg danger';return}
+ const inserted=await queueAgentCommand(command,{start,end});
+ if(inserted&&command==='add_ip_range'){$('remoteRangeStart').value='';$('remoteRangeEnd').value=''}
+}
+async function removeRemoteIpFromList(ip){
+ if(!remoteIpv4(ip))return;
+ await queueAgentCommand('remove_ip',{ip});
+}
+async function removeRemoteRangeFromList(start,end){
+ if(!remoteIpv4(start)||!remoteIpv4(end))return;
+ await queueAgentCommand('remove_ip_range',{start,end});
+}
 
 async function createProject(){
   const name=$('projectNameInput').value.trim();
