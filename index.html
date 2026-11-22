@@ -1668,6 +1668,7 @@ function showView(view){
   closePrinterDetailLayout();
   currentView=view;
   ['resumen','inventario','seriales','tinta','alertas','desconectadas','agentes','control-remoto','contadores','retiradas','duplicados','administrar','empresas','comercial','asistente'].forEach(v=>{const el=$('view-'+v);if(el)el.classList.toggle('hidden',v!==view)});
+  if(['inventario','seriales','tinta'].includes(view))initResizableInventoryTables();
   if(view==='administrar'&&!isAdmin){showView('resumen');return}
   if(view==='administrar'){populateUserProjectSelect();loadPricing();loadManagedUsers();}
   if((view==='empresas'||view==='comercial')&&!isAdmin){showView('resumen');return}
@@ -5152,6 +5153,8 @@ $('cancelDupRenameBtn').addEventListener('click',closeDuplicateRename);$('saveDu
 // El ancho elegido se conserva en este navegador para cada tabla.
 function prepareResizableTable(table){
   if(!table||table.dataset.resizePrepared==='1')return;
+  const ownerView=table.closest('[id^="view-"]');
+  if(ownerView?.classList.contains('hidden'))return;
   const header=table.tHead?.rows?.[0];
   if(!header)return;
   const ths=[...header.cells];
@@ -5188,7 +5191,6 @@ function prepareResizableTable(table){
       event.stopPropagation();
       const startX=event.clientX;
       const startWidth=cols[index].getBoundingClientRect().width;
-      const startWidths=cols.map(col=>col.getBoundingClientRect().width);
       document.body.classList.add('column-resize-active');
       const onMove=move=>{
         const next=Math.max(72,Math.min(1000,startWidth+(move.clientX-startX)));
@@ -5218,7 +5220,6 @@ function initResizableInventoryTables(){
   });
 }
 
-initResizableInventoryTables();
 if(!handleRecoveryRedirect())loadApp();setInterval(()=>{if(currentProjectId)loadProjectData()},30000);
 </script>
 </body>
