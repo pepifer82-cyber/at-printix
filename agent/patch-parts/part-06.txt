@@ -1,0 +1,100 @@
+     public string? MachineName { get; set; }
+@@ -242,6 +252,9 @@
+     [JsonPropertyName("serial_number")]
+     public string? SerialNumber { get; set; }
+ 
++    [JsonPropertyName("mac_address")]
++    public string? MacAddress { get; set; }
++
+     [JsonPropertyName("last_status")]
+     public string? LastStatus { get; set; }
+ 
+--- a/agent-v0.5.3/src/Contracts/PrinterSnapshotMapper.cs
++++ b/agent-v0.5.3/src/Contracts/PrinterSnapshotMapper.cs
+@@ -1,4 +1,5 @@
+ using AandT.Agent.Validation;
++using MacAddressValidator = AandT.Agent.Validation.MacAddress;
+ 
+ namespace AandT.Agent.Contracts;
+ 
+@@ -25,6 +26,7 @@
+             UsbPort = BlankToNull(printer.UsbPortName),
+             WindowsPrinterName = BlankToNull(printer.WindowsQueueName),
+             SerialNumber = SerialValidator.Normalize(printer.Serial),
++            MacAddress = MacAddressValidator.Normalize(printer.MacAddress),
+             LastStatus = BlankToNull(printer.StatusMessage),
+             SnmpReachable = printer.SnmpReachable,
+             SnmpName = BlankToNull(printer.SnmpSystemName),
+--- a/agent-v0.5.3/src/Discovery/WindowsDiscovery.cs
++++ b/agent-v0.5.3/src/Discovery/WindowsDiscovery.cs
+@@ -23,9 +23,11 @@
+                 try
+                 {
+                     var name = printer["Name"]?.ToString() ?? "";
+-                    if (string.IsNullOrWhiteSpace(name) || IsVirtual(name)) continue;
++                    var port = printer["PortName"]?.ToString();
++                    var driver = printer["DriverName"]?.ToString();
++                    if (string.IsNullOrWhiteSpace(name) || IsVirtual(name) ||
++                        IsVirtual(driver ?? "") || IsVirtual(port ?? "")) continue;
+ 
+-                    var port = printer["PortName"]?.ToString();
+                     var isLocal = printer["Local"] is bool local && local;
+                     var isNetwork = printer["Network"] is bool network && network;
+                     var transport = Classify(port, isLocal, isNetwork);
+@@ -61,11 +63,33 @@
+ 
+     internal static bool IsVirtual(string name)
+     {
+-        var value = name.ToLowerInvariant();
+-        return value.Contains("microsoft print to pdf") ||
+-               value.Contains("microsoft xps") ||
+-               value.Contains("fax") ||
+-               value.Contains("onenote") ||
+-               value.Contains("xps document");
++        var value = (name ?? "").Normalize(System.Text.NormalizationForm.FormKC).Trim().ToLowerInvariant();
++        if (string.IsNullOrWhiteSpace(value)) return false;
++
++        if (value.Contains("microsoft print to pdf") ||
++            value.Contains("microsoft xps") ||
++            value.Contains("xps document writer") ||
++            value.Contains("foxit") ||
++            value.Contains("print to evernote") ||
++            value.Contains("evernote") ||
++            value.Contains("adobe pdf") ||
++            value.Contains("pdfcreator") ||
++            value.Contains("cute pdf") ||
++            value.Contains("cutepdf") ||
++            value.Contains("dopdf") ||
++            value.Contains("pdf24") ||
++            value.Contains("nitro pdf") ||
++            value.Contains("bullzip") ||
++            value.Contains("primo pdf") ||
++            value.Contains("novapdf") ||
++            value.Contains("onenote") ||
++            value.Contains("virtual printer") ||
++            value.Contains("impresora virtual") ||
++            value is "nul:" or "file:" or "xpsport:" or "foxit_pdf:" or "foxit evernote:" or "portprompt:")
++            return true;
++
++        // Fax is virtual only when the queue itself is named Fax.
++        // Physical MFP models/drivers containing "Fax" are not discarded.
++        return value is "fax" or "microsoft fax" or "windows fax" or "fax printer" or "fax device";
+     }
+ }
+--- a/agent-v0.5.3/src/Sync/PanelSync.cs
++++ b/agent-v0.5.3/src/Sync/PanelSync.cs
+@@ -1,4 +1,4 @@
+-using System.Net.Http.Headers;
++﻿using System.Net.Http.Headers;
+ using System.Text;
+ using System.Text.Json;
+ using AandT.Agent.Contracts;
+@@ -23,17 +23,18 @@
+     }
+ 
+     /// <summary>Sends the current printer inventory. Returns the HTTP body for diagnostics.</summary>
+-    public async Task<(bool Ok, string Message)> SendSnapshotAsync(
++    public async Task<(bool Ok, string Message, string? AgentToken)> SendSnapshotAsync(
+         AgentSettings settings,
+         IReadOnlyList<PrinterSnapshot> printers,
+         CancellationToken ct)
