@@ -99,3 +99,4 @@
      if GetQuietOrNormalUninstall(Root, key, un) then
        List.Add(dn + '|' + un);
    end;
++end;
