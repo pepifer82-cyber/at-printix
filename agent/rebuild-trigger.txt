@@ -1,1 +1,1 @@
-Re-run the validated A&T Printer Agent 0.5.4 build workflow after correcting the Inno Setup path.
+Rebuild after fixing the three-element synchronization response tuple in PanelSync.
