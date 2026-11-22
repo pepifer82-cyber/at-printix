@@ -1,0 +1,130 @@
+on>
++    <FileVersion>0.5.4.0</FileVersion>
++    <InformationalVersion>0.5.4</InformationalVersion>
+     <Platforms>x86;x64</Platforms>
+     <ApplicationManifest>app.manifest</ApplicationManifest>
+     <ApplicationIcon>app.ico</ApplicationIcon>
+--- a/agent-v0.5.3/src/AgentRuntime.cs
++++ b/agent-v0.5.3/src/AgentRuntime.cs
+@@ -1,4 +1,4 @@
+-﻿using System.Text.Json;
++using System.Text.Json;
+ using System.Threading;
+ using AandT.Agent.Configuration;
+ using AandT.Agent.Contracts;
+@@ -194,7 +194,13 @@
+         if (string.IsNullOrWhiteSpace(_settings.Serial)) return;
+ 
+         var snapshots = _printers.Select(p => PrinterSnapshotMapper.ToSnapshot(p)).ToList();
+-        var (ok, message) = await _sync.SendSnapshotAsync(_settings, snapshots, _shutdown.Token).ConfigureAwait(false);
++        var (ok, message, issuedToken) = await _sync.SendSnapshotAsync(_settings, snapshots, _shutdown.Token).ConfigureAwait(false);
++        if (ok && !string.IsNullOrWhiteSpace(issuedToken) &&
++            !string.Equals(_settings.AgentToken, issuedToken, StringComparison.Ordinal))
++        {
++            _settings.AgentToken = issuedToken;
++            _store.Save(_settings);
++        }
+         PublishStatus(ok ? "Enviado al panel." : message, !ok);
+     }
+ 
+--- a/agent-v0.5.3/src/Configuration/AgentSettingsStore.cs
++++ b/agent-v0.5.3/src/Configuration/AgentSettingsStore.cs
+@@ -91,6 +91,7 @@
+             settings.InstallId = Guid.NewGuid().ToString();
+ 
+         settings.Serial = Protect(settings.Serial);
++        settings.AgentToken = Protect(settings.AgentToken);
+         settings.SnmpV3AuthPassword = Protect(settings.SnmpV3AuthPassword);
+         settings.SnmpV3PrivacyPassword = Protect(settings.SnmpV3PrivacyPassword);
+         try
+@@ -101,6 +102,7 @@
+         {
+             // The in-memory object keeps plaintext; only the file is protected.
+             settings.Serial = Unprotect(settings.Serial);
++            settings.AgentToken = Unprotect(settings.AgentToken);
+             settings.SnmpV3AuthPassword = Unprotect(settings.SnmpV3AuthPassword);
+             settings.SnmpV3PrivacyPassword = Unprotect(settings.SnmpV3PrivacyPassword);
+         }
+@@ -178,6 +180,7 @@
+             .ToList();
+ 
+         settings.Serial = Unprotect(settings.Serial);
++        settings.AgentToken = Unprotect(settings.AgentToken);
+         settings.SnmpV3AuthPassword = Unprotect(settings.SnmpV3AuthPassword);
+         settings.SnmpV3PrivacyPassword = Unprotect(settings.SnmpV3PrivacyPassword);
+     }
+--- a/agent-v0.5.3/src/Contracts/AgentContracts.cs
++++ b/agent-v0.5.3/src/Contracts/AgentContracts.cs
+@@ -25,6 +25,10 @@
+     [JsonPropertyName("install_id")]
+     public string InstallId { get; set; } = "";
+ 
++    /// <summary>Per-installation token issued by printer-agent-sync after serial activation.</summary>
++    [JsonPropertyName("agent_token")]
++    public string AgentToken { get; set; } = "";
++
+     [JsonPropertyName("snmp_enabled")]
+     public bool SnmpEnabled { get; set; } = true;
+ 
+@@ -139,6 +143,9 @@
+     [JsonPropertyName("install_id")]
+     public string InstallId { get; set; } = "";
+ 
++    [JsonPropertyName("agent_token")]
++    public string AgentToken { get; set; } = "";
++
+     [JsonPropertyName("command_acks")]
+     public List<CommandAck> CommandAcks { get; set; } = new();
+ 
+@@ -188,6 +195,9 @@
+ 
+     [JsonPropertyName("install_id")]
+     public string InstallId { get; set; } = "";
++
++    [JsonPropertyName("agent_token")]
++    public string AgentToken { get; set; } = "";
+ 
+     [JsonPropertyName("machine_name")]
+     public string? MachineName { get; set; }
+@@ -242,6 +252,9 @@
+     [JsonPropertyName("serial_number")]
+     public string? SerialNumber { get; set; }
+ 
++    [JsonPropertyName("mac_address")]
++    public string? MacAddress { get; set; }
++
+     [JsonPropertyName("last_status")]
+     public string? LastStatus { get; set; }
+ 
+--- a/agent-v0.5.3/src/Contracts/PrinterSnapshotMapper.cs
++++ b/agent-v0.5.3/src/Contracts/PrinterSnapshotMapper.cs
+@@ -1,4 +1,5 @@
+ using AandT.Agent.Validation;
++using MacAddressValidator = AandT.Agent.Validation.MacAddress;
+ 
+ namespace AandT.Agent.Contracts;
+ 
+@@ -25,6 +26,7 @@
+             UsbPort = BlankToNull(printer.UsbPortName),
+             WindowsPortName = BlankToNull(printer.WindowsPortName),
+             SerialNumber = SerialValidator.Normalize(printer.Serial),
++            MacAddress = MacAddressValidator.Normalize(printer.MacAddress),
+             LastStatus = BlankToNull(printer.StatusMessage),
+             SnmpReachable = printer.SnmpReachable,
+             SnmpName = BlankToNull(printer.SnmpSystemName),
+--- a/agent-v0.5.3/src/Discovery/WindowsDiscovery.cs
++++ b/agent-v0.5.3/src/Discovery/WindowsDiscovery.cs
+@@ -23,9 +23,11 @@
+                 try
+                 {
+                     var name = printer["Name"]?.ToString() ?? "";
+-                    if (string.IsNullOrWhiteSpace(name) || IsVirtual(name)) continue;
++                    var port = printer["PortName"]?.ToString();
++                    var driver = printer["DriverName"]?.ToString();
++                    if (string.IsNullOrWhiteSpace(name) || IsVirtual(name) ||
++                        IsVirtual(driver ?? "") || IsVirtual(port ?? "")) continue;
+ 
+-                    var port = printer["PortName"]?.ToString();
+                     var isLocal = printer["Local"] is bool local && local;
+                     var isNetwork = printer["Network"] is bool network && network;
+                     var transport 
