@@ -810,6 +810,27 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
 html[data-theme="dark"] .column-resize-handle:hover::after{
   background:#44c9ff;
 }
+
+/* Descargas del agente A&T Printix */
+body.agent-modal-open{overflow:hidden}
+.agent-download-modal{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(8,20,36,.58);backdrop-filter:blur(5px)}
+.agent-download-modal.is-open{display:flex}
+.agent-download-dialog{width:min(100%,560px);max-height:min(90vh,760px);overflow:auto;background:var(--panel-solid,#fff);color:var(--text,#102033);border:1px solid var(--line,#dce6f2);border-radius:16px;box-shadow:0 24px 80px #061a33aa;padding:20px}
+.agent-download-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.agent-download-head h3{margin:0;font-size:19px}
+.agent-download-close{width:34px;height:34px;border-radius:9px;background:#eef4fb;color:#23466b;font-size:20px;font-weight:700}
+.agent-download-intro{margin:0 0 16px;color:var(--muted,#6b7c93);font-size:13px;line-height:1.5}
+.agent-download-option{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--line,#dce6f2);border-radius:12px;margin-top:10px;background:var(--panel,#fff)}
+.agent-download-icon{width:42px;height:42px;flex:0 0 42px;border-radius:11px;display:grid;place-items:center;background:#eaf3ff;color:#2878ff;font-size:21px}
+.agent-download-info{min-width:0;flex:1}
+.agent-download-info strong{display:block;font-size:13px}
+.agent-download-info small{display:block;color:var(--muted,#6b7c93);font-size:11px;line-height:1.4;margin-top:3px}
+.agent-download-link{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:8px;background:#2878ff;color:#fff;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap}
+.agent-download-link.secondary{background:#eef4fb;color:#23466b;border:1px solid #d3dfec}
+.agent-download-note{margin-top:14px;padding:11px 12px;border-radius:10px;background:#fff8e8;border:1px solid #f1dfb4;color:#76551a;font-size:11px;line-height:1.5}
+.agent-download-checksum{margin-top:12px;font-size:10px;color:var(--muted,#6b7c93);overflow-wrap:anywhere}
+.agent-download-checksum code{font-size:10px}
+@media(max-width:520px){.agent-download-dialog{padding:15px}.agent-download-option{align-items:flex-start;flex-wrap:wrap}.agent-download-link{margin-left:54px}.agent-download-close{flex:0 0 34px}}
 </style>
 </head>
 <body>
@@ -4377,8 +4398,24 @@ function exportProjectCsv(){
   atNotify('CSV generado correctamente.','success');
 }
 function downloadAgentRelease(){
-  window.open('https://github.com/pepifer82-cyber/at-printix/releases','_blank','noopener');
+  const modal=document.getElementById('agentDownloadModal');
+  if(!modal){window.open('https://github.com/pepifer82-cyber/at-printix/releases/tag/agent-v0.5.6','_blank','noopener');return}
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('agent-modal-open');
+  const close=modal.querySelector('[data-agent-close]');
+  if(close)close.focus();
 }
+function closeAgentDownloadModal(){
+  const modal=document.getElementById('agentDownloadModal');
+  if(!modal)return;
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden','true');
+  document.body.classList.remove('agent-modal-open');
+}
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape')closeAgentDownloadModal();
+});
 function openInventoryHelp(){
   showView('asistente');
   const question=$('aiQuestion');
@@ -6154,6 +6191,28 @@ function initResizableInventoryTables(){
 
 if(!handleRecoveryRedirect())loadApp();setInterval(()=>{if(currentProjectId)loadProjectData()},30000);
 </script>
+
+<div id="agentDownloadModal" class="agent-download-modal" aria-hidden="true" onclick="if(event.target===this)closeAgentDownloadModal()">
+  <section class="agent-download-dialog" role="dialog" aria-modal="true" aria-labelledby="agentDownloadTitle">
+    <div class="agent-download-head">
+      <div><h3 id="agentDownloadTitle">Descargar A&amp;T Printix Agent</h3><div style="margin-top:5px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;background:#e8f7ef;color:#16804e;font-size:11px;font-weight:800">Versión 0.5.6</span></div></div>
+      <button class="agent-download-close" type="button" data-agent-close onclick="closeAgentDownloadModal()" aria-label="Cerrar">×</button>
+    </div>
+    <p class="agent-download-intro">Seleccioná el instalador para Windows. Los archivos se descargan desde la publicación oficial de A&amp;T Printix en GitHub.</p>
+    <div class="agent-download-option">
+      <div class="agent-download-icon" aria-hidden="true">↓</div>
+      <div class="agent-download-info"><strong>Instalador EXE · Recomendado</strong><small>Un solo instalador que selecciona automáticamente el agente nativo de Windows de 32 o 64 bits.</small></div>
+      <a class="agent-download-link" href="https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.6/Instalar_ATPrinterAgent_v0.5.6.exe" target="_blank" rel="noopener">Descargar EXE</a>
+    </div>
+    <div class="agent-download-option">
+      <div class="agent-download-icon" aria-hidden="true">▣</div>
+      <div class="agent-download-info"><strong>Paquete MSI</strong><small>Paquete MSI de 32 bits; instala el agente x86 tanto en Windows x86 como x64.</small></div>
+      <a class="agent-download-link secondary" href="https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.6/AT_Printix_Agent_0.5.6.msi" target="_blank" rel="noopener">Descargar MSI</a>
+    </div>
+    <div class="agent-download-note"><strong>Importante:</strong> estos instaladores no están firmados digitalmente porque no se dispuso del certificado privado de A&amp;T durante la compilación. Windows puede mostrar una advertencia de editor desconocido.</div>
+    <div class="agent-download-checksum">SHA-256 EXE: <code>32a141d414b89daf5168ac7407196ce678acc7b73c1a0af8836bb0124b38fce5</code><br>SHA-256 MSI: <code>da29836f965ed05032d6164e18619732e6457391bd4d5563d5ceaf659adc41bf</code><br><a href="https://github.com/pepifer82-cyber/at-printix/releases/tag/agent-v0.5.6" target="_blank" rel="noopener">Ver publicación y archivos de la versión 0.5.6</a></div>
+  </section>
+</div>
 </body>
 </html>
 
