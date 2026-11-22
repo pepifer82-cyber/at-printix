@@ -668,6 +668,67 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
   .launcher .app-btn{min-height:80px}
 }
 
+
+/* === Redimensionar columnas del inventario con el mouse === */
+.table-wrap table.column-resize-table{
+  table-layout:fixed!important;
+  width:max-content;
+  min-width:0!important;
+}
+.column-resize-table th,
+.column-resize-table td{
+  box-sizing:border-box;
+  min-width:0!important;
+}
+.column-resize-table th{
+  position:sticky;
+  overflow:visible;
+  padding-right:18px;
+}
+.column-resize-table td{
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.column-resize-table td input.inline-edit{max-width:100%;min-width:0}
+.column-resize-handle{
+  position:absolute;
+  z-index:5;
+  top:0;
+  right:-4px;
+  width:10px;
+  height:100%;
+  cursor:col-resize;
+  touch-action:none;
+  user-select:none;
+  display:block;
+}
+.column-resize-handle::after{
+  content:"";
+  position:absolute;
+  top:22%;
+  bottom:22%;
+  left:4px;
+  width:2px;
+  border-radius:3px;
+  background:transparent;
+  transition:background .12s,box-shadow .12s;
+}
+.column-resize-table th:hover .column-resize-handle::after,
+.column-resize-handle:hover::after{
+  background:#57a7ff;
+  box-shadow:0 0 0 2px #57a7ff22;
+}
+.column-resize-active,.column-resize-active *{
+  cursor:col-resize!important;
+  user-select:none!important;
+}
+.column-resize-active .column-resize-handle::after{
+  background:#1685ff;
+  box-shadow:0 0 0 2px #1685ff33;
+}
+html[data-theme="dark"] .column-resize-handle:hover::after{
+  background:#44c9ff;
+}
 </style>
 </head>
 <body>
@@ -807,18 +868,18 @@ html:not([data-theme="dark"]) .launcher .app-title{color:#17314d}
         </form>
         <div id="manualPrinterMsg" class="auth-msg muted" aria-live="polite"></div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Impresora</th><th>Modelo</th><th>Descripción</th><th>Ciudad</th><th>Conexión</th><th>Controlador</th><th>IP / Puerto</th><th>Serie de fábrica</th><th>MAC de red</th><th>Estado</th><th>Última actualización</th><th></th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
+      <div class="table-wrap"><table id="inventoryResizableTable" class="column-resize-table"><thead><tr><th>Impresora</th><th>Modelo</th><th>Descripción</th><th>Ciudad</th><th>Conexión</th><th>Controlador</th><th>IP / Puerto</th><th>Serie de fábrica</th><th>MAC de red</th><th>Estado</th><th>Última actualización</th><th></th></tr></thead><tbody id="inventoryBody"></tbody></table></div>
     </section>
 
     <section id="view-seriales" class="content-card hidden">
       <div class="content-head"><div><h2 style="margin:0;font-size:1.17em">Inventario general de impresoras</h2><small id="serialsCount">Impresoras activas dentro del alcance de tu cuenta.</small></div><div class="content-tools"><button class="toolbar-btn" type="button" onclick="showView('control-remoto')">Configurar búsqueda</button></div></div>
       <p class="muted" style="font-size:12px;margin:0 0 12px">El administrador ve todos los clientes o el cliente elegido en el filtro. Cada cliente ve únicamente los proyectos de su empresa. Una impresora activa no debe asignarse a otro proyecto: primero retírala del proyecto anterior; después configura el agente o registra el equipo en el proyecto de destino. Si aparece en varios, abre cada proyecto señalado y retírala de los que ya no corresponden. El inventario conserva las retiradas en su proyecto.</p>
-      <div class="table-wrap"><table><thead><tr><th>Proyecto</th><th>Impresora</th><th>Fabricante / modelo</th><th>Serie de fábrica</th><th>Lectura</th><th>Origen del serial</th><th>Conexión / IP</th><th>Controlador</th><th>Estado</th><th>Agente</th><th>Última detección</th></tr></thead><tbody id="serialsBody"></tbody></table></div>
+      <div class="table-wrap"><table id="serialsResizableTable" class="column-resize-table"><thead><tr><th>Proyecto</th><th>Impresora</th><th>Fabricante / modelo</th><th>Serie de fábrica</th><th>Lectura</th><th>Origen del serial</th><th>Conexión / IP</th><th>Controlador</th><th>Estado</th><th>Agente</th><th>Última detección</th></tr></thead><tbody id="serialsBody"></tbody></table></div>
     </section>
 
     <section id="view-tinta" class="content-card hidden">
       <div class="content-head"><div><h3>Niveles de tinta / tóner</h3><small>Lecturas disponibles de cada impresora.</small></div><button class="toolbar-btn" type="button" onclick="exportProjectExcel()">▣ Excel</button></div>
-      <div class="table-wrap"><table><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Último dato de tóner</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Error</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
+      <div class="table-wrap"><table id="tonerResizableTable" class="column-resize-table"><thead><tr><th>Impresora</th><th>K Negro</th><th>C Cian</th><th>M Magenta</th><th>Y Amarillo</th><th>Último dato de tóner</th><th>Otros consumibles</th><th>Métodos / diagnóstico</th><th>Error</th></tr></thead><tbody id="tonerBody"></tbody></table></div>
     </section>
 
     <section id="view-alertas" class="content-card hidden">
@@ -5086,6 +5147,78 @@ $('cancelProjectBtn').addEventListener('click',()=>{$('projectModal').classList.
 $('createProjectBtn').addEventListener('click',createProject);$('copySerialBtn').addEventListener('click',copySerial);$('newSerialBtn').addEventListener('click',generateSerial);
 $('cancelPrinterBtn').addEventListener('click',closePrinterEditor);$('savePrinterBtn').addEventListener('click',savePrinterMeta);
 $('cancelDupRenameBtn').addEventListener('click',closeDuplicateRename);$('saveDupRenameBtn').addEventListener('click',saveDuplicateRename);
+
+// Columnas ajustables: arrastrá el borde derecho de cualquier encabezado.
+// El ancho elegido se conserva en este navegador para cada tabla.
+function prepareResizableTable(table){
+  if(!table||table.dataset.resizePrepared==='1')return;
+  const header=table.tHead?.rows?.[0];
+  if(!header)return;
+  const ths=[...header.cells];
+  let colgroup=table.querySelector(':scope > colgroup');
+  if(!colgroup){
+    colgroup=document.createElement('colgroup');
+    table.insertBefore(colgroup,table.tHead);
+  }
+  while(colgroup.children.length<ths.length)colgroup.appendChild(document.createElement('col'));
+  while(colgroup.children.length>ths.length)colgroup.lastElementChild.remove();
+  const cols=[...colgroup.children];
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem('atpc-column-widths-'+table.id)||'[]')}catch{}
+  const widths=ths.map((th,i)=>{
+    const measured=Math.round(th.getBoundingClientRect().width||th.scrollWidth+30||140);
+    const value=Number(saved[i]);
+    return Number.isFinite(value)&&value>=72&&value<=1000?value:Math.max(85,measured);
+  });
+  widths.forEach((width,i)=>{cols[i].style.width=width+'px'});
+  table.style.width=widths.reduce((a,b)=>a+b,0)+'px';
+  table.dataset.resizePrepared='1';
+  ths.forEach((th,index)=>{
+    th.classList.add('column-resize-th');
+    if(th.querySelector('.column-resize-handle'))return;
+    const handle=document.createElement('span');
+    handle.className='column-resize-handle';
+    handle.title='Arrastrá para cambiar el ancho de esta columna';
+    handle.setAttribute('role','separator');
+    handle.setAttribute('aria-orientation','vertical');
+    handle.setAttribute('aria-label','Cambiar ancho de columna '+(th.textContent.trim()||index+1));
+    handle.addEventListener('pointerdown',event=>{
+      if(event.button!==0)return;
+      event.preventDefault();
+      event.stopPropagation();
+      const startX=event.clientX;
+      const startWidth=cols[index].getBoundingClientRect().width;
+      const startWidths=cols.map(col=>col.getBoundingClientRect().width);
+      document.body.classList.add('column-resize-active');
+      const onMove=move=>{
+        const next=Math.max(72,Math.min(1000,startWidth+(move.clientX-startX)));
+        cols[index].style.width=next+'px';
+        const total=cols.reduce((sum,col)=>sum+col.getBoundingClientRect().width,0);
+        table.style.width=total+'px';
+      };
+      const finish=()=>{
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',finish);
+        document.removeEventListener('pointercancel',finish);
+        document.body.classList.remove('column-resize-active');
+        const finalWidths=cols.map(col=>Math.round(col.getBoundingClientRect().width));
+        try{localStorage.setItem('atpc-column-widths-'+table.id,JSON.stringify(finalWidths))}catch{}
+      };
+      document.addEventListener('pointermove',onMove);
+      document.addEventListener('pointerup',finish,{once:true});
+      document.addEventListener('pointercancel',finish,{once:true});
+    });
+    th.appendChild(handle);
+  });
+}
+function initResizableInventoryTables(){
+  ['inventoryResizableTable','serialsResizableTable','tonerResizableTable'].forEach(id=>{
+    const table=document.getElementById(id);
+    if(table)prepareResizableTable(table);
+  });
+}
+
+initResizableInventoryTables();
 if(!handleRecoveryRedirect())loadApp();setInterval(()=>{if(currentProjectId)loadProjectData()},30000);
 </script>
 </body>
