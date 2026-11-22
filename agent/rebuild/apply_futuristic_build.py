@@ -12,7 +12,7 @@ patch = "".join(p.read_text(encoding="utf-8") for p in parts)
 patch = patch.replace("\r\n", "\n").replace("\r", "\n")
 patch_hash = hashlib.sha256(patch.encode("utf-8")).hexdigest()
 expected = "1ee1be7dc4525ce712908b2470578051555ae6663a2fbafd70889c404b755e6d"
-print("Parche 0.5.4 SHA256:", patch_hash)
+print("Parche base 0.5.4 SHA256:", patch_hash)
 if patch_hash != expected:
     raise SystemExit("La suma del parche 0.5.4 no coincide.")
 
@@ -24,7 +24,7 @@ patch_without_iss = "".join(
     block for block in blocks
     if not block.startswith("--- a/agent-v0.5.3/AandTPrinterAgent.iss")
 )
-patch_path = workspace / "agent-v0.5.4-no-iss.patch"
+patch_path = workspace / "agent-v0.5.5-no-iss.patch"
 patch_path.write_text(patch_without_iss, encoding="utf-8", newline="\n")
 
 for args in [
@@ -37,15 +37,15 @@ for args in [
     if result.stderr:
         print(result.stderr)
     if result.returncode:
-        raise SystemExit(f"Error aplicando cambios del agente 0.5.4: {result.returncode}")
+        raise SystemExit(f"Error aplicando cambios base del agente: {result.returncode}")
 
 # Version metadata for the installer; keep the tested 0.5.3 installer logic.
 iss = source_root / "AandTPrinterAgent.iss"
 text = iss.read_text(encoding="utf-8-sig")
-text = text.replace('#define MyAppVersion "0.5.3"', '#define MyAppVersion "0.5.4"')
-text = text.replace("VersionInfoVersion=0.5.3.0", "VersionInfoVersion=0.5.4.0")
-text = text.replace("VersionInfoProductVersion=0.5.3", "VersionInfoProductVersion=0.5.4")
-text = text.replace("OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.3", "OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.4")
+text = text.replace('#define MyAppVersion "0.5.3"', '#define MyAppVersion "0.5.5"')
+text = text.replace("VersionInfoVersion=0.5.3.0", "VersionInfoVersion=0.5.5.0")
+text = text.replace("VersionInfoProductVersion=0.5.3", "VersionInfoProductVersion=0.5.5")
+text = text.replace("OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.3", "OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.5")
 iss.write_text(text, encoding="utf-8-sig", newline="\n")
 
 # Install the new visual layer without touching runtime/discovery/sync code.
@@ -64,14 +64,22 @@ main_form.write_text(mf, encoding="utf-8-sig", newline="\n")
 
 # Accurate release notes: this build retains the existing optional clean-install
 # prompt; accepting it removes old local A&T data, declining preserves settings.
-# Use the verifier matching the 0.5.4 installer name and version.
+# Use the verifier matching the 0.5.5 installer name and version.
 verifier_source = workspace / "agent" / "verify-build.ps1"
 verifier_target = source_root / "verify-build.ps1"
 if not verifier_source.exists():
     raise SystemExit("Falta agent/verify-build.ps1 del repositorio.")
 verifier_target.write_text(verifier_source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
 
-notes = """## A&T Printix Agent 0.5.4 — Futuristic Edition
+# Advance the new futuristic release to 0.5.5; 0.5.4 already exists on GitHub.
+for rel in ["src/ATPrinterAgent.csproj", "build.bat", "verify-build.ps1"]:
+    target = source_root / rel
+    value = target.read_text(encoding="utf-8-sig")
+    value = value.replace("0.5.4", "0.5.5")
+    target.write_text(value, encoding="utf-8-sig", newline="\n")
+
+
+notes = """## A&T Printix Agent 0.5.5 — Futuristic Edition
 
 ### Interfaz
 - Nueva identidad A&T Printix con interfaz oscura premium y acentos cian.
@@ -99,15 +107,15 @@ notes = """## A&T Printix Agent 0.5.4 — Futuristic Edition
 - Se ejecutan las pruebas automáticas antes de publicar artefactos.
 - Instaladores autocontenidos Windows x64 y x86, con SHA-256 de cada instalador.
 """
-(source_root / "RELEASE_NOTES_0.5.4.md").write_text(notes, encoding="utf-8")
+(source_root / "RELEASE_NOTES_0.5.5.md").write_text(notes, encoding="utf-8")
 
-readme = """A&T Printix Agent 0.5.4 — Futuristic Edition
+readme = """A&T Printix Agent 0.5.5 — Futuristic Edition
 
 Agente Windows de A&T Printix para descubrir, identificar y monitorear impresoras.
 Incluye interfaz oscura premium con modo claro, arranque discreto y bandeja del sistema.
 
 INSTALACIÓN
-1. Ejecutar Instalar_ATPrinterAgent_v0.5.4.exe como administrador.
+1. Ejecutar Instalar_ATPrinterAgent_v0.5.5.exe como administrador.
 2. En el primer inicio, pegar el serial del proyecto generado en el panel A&T Printix.
 3. Pulsar Activar serial y configurar las IP/rangos si se necesita escaneo LAN.
 4. El agente trabaja en segundo plano y puede abrirse desde el icono junto al reloj.
@@ -136,4 +144,4 @@ if not re.search(r'public string Serial \{ get; set; \} = ""', contracts):
 if "agent_token" not in contracts and "AgentToken" not in contracts:
     raise SystemExit("Falta el campo de token remoto en los contratos del agente.")
 
-print("Base 0.5.4 + tema futurista aplicada correctamente.")
+print("Base de lectura 0.5.3/0.5.4 + edición futurista 0.5.5 aplicada correctamente.")
