@@ -1011,6 +1011,7 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
         <div><h3>Reporte de contadores por período</h3><small>Una fila por impresora activa para todo el período seleccionado. Las retiradas no se incluyen y los datos no informados se muestran como «—».</small></div>
         <div class="content-tools">
           <details class="column-picker" id="counterColumnPicker"><summary class="toolbar-btn">☷ Columnas</summary><div class="column-picker-panel counter-column-picker-panel" id="counterColumnOptions"></div></details>
+          <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
           
         </div>
       </div>
@@ -1024,7 +1025,7 @@ html[data-theme="dark"] .column-resize-handle:hover::after{
           <input id="counterTo" class="toolbar-input" type="date" style="width:100%;min-width:0">
         </div>
         <button id="counterQueryBtn" class="toolbar-btn" type="button">Consultar</button>
-        <button id="counterExcelBtn" class="toolbar-btn primary" type="button">▣ Excel</button>
+        
       </div>
       <div id="counterMsg" class="muted" style="font-size:12px;margin:2px 0 10px">Elegí un período para consultar.</div>
       <div class="table-wrap"><table id="counterResizableTable" class="column-resize-table"><thead><tr><th>Proyecto / Contrato</th></tr></thead><tbody id="counterBody"></tbody></table></div>
@@ -1729,7 +1730,7 @@ function showView(view){
   closePrinterDetailLayout();
   currentView=view;
   ['resumen','inventario','seriales','tinta','alertas','desconectadas','agentes','control-remoto','contadores','retiradas','duplicados','administrar','empresas','comercial','asistente'].forEach(v=>{const el=$('view-'+v);if(el)el.classList.toggle('hidden',v!==view)});
-  if(['inventario','seriales','tinta'].includes(view))initResizableInventoryTables();
+  if(['inventario','seriales','tinta','contadores'].includes(view))initResizableInventoryTables();
   if(view==='administrar'&&!isAdmin){showView('resumen');return}
   if(view==='administrar'){populateUserProjectSelect();loadPricing();loadManagedUsers();}
   if((view==='empresas'||view==='comercial')&&!isAdmin){showView('resumen');return}
@@ -1746,7 +1747,7 @@ $('refreshBtn').addEventListener('click',()=>currentPrinterDetailId?reloadPrinte
 $('exportExcelBtn').addEventListener('click',exportProjectExcel);
 document.querySelectorAll('.app-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view&&(view!=='comercial'||b.id===activeCommercialTileId)));
   // Al abrir Contadores, consultar el período predeterminado automáticamente.
-  if(view==='contadores')loadCounterHistory(true);
+  if(view==='contadores'){renderCounterColumnPicker();syncCounterColumnChecks();loadCounterHistory(true);}
   if(view==='duplicados')renderDuplicateNames();
 }
 // Agrupa reclamaciones de una misma impresora entre proyectos cuando serial
@@ -4247,6 +4248,115 @@ async function loadCounterHistory(showMessage=true){
     return [];
   }
 }
+const COUNTER_METRIC_DEFS=[
+  {id:'black',start:['first_black_page_count','black_page_count_start','page_count_black_start','black_pages_start','black_start'],end:['last_black_page_count','black_page_count_end','page_count_black_end','black_pages_end','black_end'],total:['total_black_pages','black_pages_printed','pages_black','mono_pages_printed']},
+  {id:'color',start:['first_color_page_count','color_page_count_start','page_count_color_start','color_pages_start','color_start'],end:['last_color_page_count','color_page_count_end','page_count_color_end','color_pages_end','color_end'],total:['total_color_pages','color_pages_printed','pages_color','colour_pages_printed']},
+  {id:'a3',start:['first_a3_page_count','a3_page_count_start','page_count_a3_start','a3_pages_start','a3_start'],end:['last_a3_page_count','a3_page_count_end','page_count_a3_end','a3_pages_end','a3_end'],total:['total_a3_pages','a3_pages_printed','pages_a3','a3_printed_pages']},
+  {id:'blackA3',start:['first_black_a3_page_count','black_a3_page_count_start','page_count_black_a3_start','black_a3_pages_start'],end:['last_black_a3_page_count','black_a3_page_count_end','page_count_black_a3_end','black_a3_pages_end'],total:['total_black_a3_pages','black_a3_pages_printed','pages_black_a3','a3_black_pages']},
+  {id:'colorA3',start:['first_color_a3_page_count','color_a3_page_count_start','page_count_color_a3_start','color_a3_pages_start'],end:['last_color_a3_page_count','color_a3_page_count_end','page_count_color_a3_end','color_a3_pages_end'],total:['total_color_a3_pages','color_a3_pages_printed','pages_color_a3','a3_color_pages']},
+  {id:'blackScan',start:['first_black_scan_count','black_scan_count_start','black_scans_start'],end:['last_black_scan_count','black_scan_count_end','black_scans_end'],total:['total_black_scans','black_scans_count','scans_black']},
+  {id:'colorScan',start:['first_color_scan_count','color_scan_count_start','color_scans_start'],end:['last_color_scan_count','color_scan_count_end','color_scans_end'],total:['total_color_scans','color_scans_count','scans_color']},
+  {id:'fax',start:['first_fax_count','fax_count_start','total_fax_start','fax_start'],end:['last_fax_count','fax_count_end','total_fax_end','fax_end'],total:['total_fax','fax_count','faxes_count','fax_pages_printed']},
+  {id:'blackFax',start:['first_black_fax_count','black_fax_count_start','black_fax_start'],end:['last_black_fax_count','black_fax_count_end','black_fax_end'],total:['total_black_fax','black_fax_count','black_faxes_count']},
+  {id:'colorFax',start:['first_color_fax_count','color_fax_count_start','color_fax_start'],end:['last_color_fax_count','color_fax_count_end','color_fax_end'],total:['total_color_fax','color_fax_count','color_faxes_count']},
+  {id:'line1',start:['first_line_1_count','line_1_start','line1_start','counter_line_1_start'],end:['last_line_1_count','line_1_end','line1_end','counter_line_1_end'],total:['total_line_1','line_1_count','line1_count','line_1']},
+  {id:'line2',start:['first_line_2_count','line_2_start','line2_start','counter_line_2_start'],end:['last_line_2_count','line_2_end','line2_end','counter_line_2_end'],total:['total_line_2','line_2_count','line2_count','line_2']},
+  {id:'line3',start:['first_line_3_count','line_3_start','line3_start','counter_line_3_start'],end:['last_line_3_count','line_3_end','line3_end','counter_line_3_end'],total:['total_line_3','line_3_count','line3_count','line_3']},
+  {id:'line4',start:['first_line_4_count','line_4_start','line4_start','counter_line_4_start'],end:['last_line_4_count','line_4_end','line4_end','counter_line_4_end'],total:['total_line_4','line_4_count','line4_count','line_4']}
+];
+const COUNTER_COLUMN_DEFS=[
+  {id:'project',label:'Proyecto / Contrato',value:r=>r.project_name||'—'},
+  {id:'model',label:'Modelo',value:r=>r.model||r.printer||'—'},
+  {id:'serial',label:'Número de Serie',value:r=>r.serial_number||'—'},
+  {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
+  {id:'location',label:'Localización',value:r=>inventoryFirstValue(r,['location','city','description','address'])||'—'},
+  {id:'ip',label:'Dirección IP',value:r=>r.ip_address||'—'},
+  {id:'from',label:'Desde',value:()=>counterRowsPeriod?.from||$('counterFrom')?.value||'—'},
+  {id:'to',label:'Hasta',value:()=>counterRowsPeriod?.to||$('counterTo')?.value||'—'},
+  {id:'lastReading',label:'Última lectura',value:r=>r.last_reading_at?new Date(r.last_reading_at).toLocaleString('es-PY'):'—'},
+  {id:'totalStart',label:'Total desde',value:r=>r.first_page_count},
+  {id:'totalEnd',label:'Total hasta',value:r=>r.last_page_count},
+  {id:'total',label:'Total',value:r=>r.total_general_pages},
+  {id:'blackStart',label:'Negro desde',value:r=>r.counterMetrics?.black?.start},
+  {id:'blackEnd',label:'Negro hasta',value:r=>r.counterMetrics?.black?.end},
+  {id:'black',label:'Negro',value:r=>r.total_black_pages},
+  {id:'colorStart',label:'Color desde',value:r=>r.counterMetrics?.color?.start},
+  {id:'colorEnd',label:'Color hasta',value:r=>r.counterMetrics?.color?.end},
+  {id:'color',label:'Color',value:r=>r.total_color_pages},
+  {id:'a3Start',label:'Total A3 desde',value:r=>r.counterMetrics?.a3?.start},
+  {id:'a3End',label:'Total A3 hasta',value:r=>r.counterMetrics?.a3?.end},
+  {id:'a3',label:'Total A3',value:r=>r.counterMetrics?.a3?.total},
+  {id:'blackA3Start',label:'Negro A3 desde',value:r=>r.counterMetrics?.blackA3?.start},
+  {id:'blackA3End',label:'Negro A3 hasta',value:r=>r.counterMetrics?.blackA3?.end},
+  {id:'blackA3',label:'Negro A3',value:r=>r.counterMetrics?.blackA3?.total},
+  {id:'colorA3Start',label:'Color A3 desde',value:r=>r.counterMetrics?.colorA3?.start},
+  {id:'colorA3End',label:'Color A3 hasta',value:r=>r.counterMetrics?.colorA3?.end},
+  {id:'colorA3',label:'Color A3',value:r=>r.counterMetrics?.colorA3?.total},
+  {id:'scanStart',label:'Total Scan desde',value:r=>r.first_scanner_count},
+  {id:'scanEnd',label:'Total Scan hasta',value:r=>r.last_scanner_count},
+  {id:'scan',label:'Total Scan',value:r=>r.total_scans},
+  {id:'blackScanStart',label:'Negro Scan desde',value:r=>r.counterMetrics?.blackScan?.start},
+  {id:'blackScanEnd',label:'Negro Scan hasta',value:r=>r.counterMetrics?.blackScan?.end},
+  {id:'blackScan',label:'Negro Scan',value:r=>r.counterMetrics?.blackScan?.total},
+  {id:'colorScanStart',label:'Color Scan desde',value:r=>r.counterMetrics?.colorScan?.start},
+  {id:'colorScanEnd',label:'Color Scan hasta',value:r=>r.counterMetrics?.colorScan?.end},
+  {id:'colorScan',label:'Color Scan',value:r=>r.counterMetrics?.colorScan?.total},
+  {id:'faxStart',label:'Total Fax desde',value:r=>r.counterMetrics?.fax?.start},
+  {id:'faxEnd',label:'Total Fax hasta',value:r=>r.counterMetrics?.fax?.end},
+  {id:'fax',label:'Total Fax',value:r=>r.counterMetrics?.fax?.total},
+  {id:'blackFaxStart',label:'Negro Fax desde',value:r=>r.counterMetrics?.blackFax?.start},
+  {id:'blackFaxEnd',label:'Negro Fax hasta',value:r=>r.counterMetrics?.blackFax?.end},
+  {id:'blackFax',label:'Negro Fax',value:r=>r.counterMetrics?.blackFax?.total},
+  {id:'colorFaxStart',label:'Color Fax desde',value:r=>r.counterMetrics?.colorFax?.start},
+  {id:'colorFaxEnd',label:'Color Fax hasta',value:r=>r.counterMetrics?.colorFax?.end},
+  {id:'colorFax',label:'Color Fax',value:r=>r.counterMetrics?.colorFax?.total},
+  {id:'line1Start',label:'Línea 1 Desde',value:r=>r.counterMetrics?.line1?.start},
+  {id:'line1End',label:'Línea 1 Hasta',value:r=>r.counterMetrics?.line1?.end},
+  {id:'line1',label:'Línea 1',value:r=>r.counterMetrics?.line1?.total},
+  {id:'line2Start',label:'Línea 2 Desde',value:r=>r.counterMetrics?.line2?.start},
+  {id:'line2End',label:'Línea 2 Hasta',value:r=>r.counterMetrics?.line2?.end},
+  {id:'line2',label:'Línea 2',value:r=>r.counterMetrics?.line2?.total},
+  {id:'line3Start',label:'Línea 3 Desde',value:r=>r.counterMetrics?.line3?.start},
+  {id:'line3End',label:'Línea 3 Hasta',value:r=>r.counterMetrics?.line3?.end},
+  {id:'line3',label:'Línea 3',value:r=>r.counterMetrics?.line3?.total},
+  {id:'line4Start',label:'Línea 4 Desde',value:r=>r.counterMetrics?.line4?.start},
+  {id:'line4End',label:'Línea 4 Hasta',value:r=>r.counterMetrics?.line4?.end},
+  {id:'line4',label:'Línea 4',value:r=>r.counterMetrics?.line4?.total}
+];
+const COUNTER_DEFAULT_COLUMNS=[
+  'project','model','serial','reference','location','ip','from','to','lastReading',
+  'totalStart','totalEnd','total','blackStart','blackEnd','black',
+  'colorStart','colorEnd','color','scanStart','scanEnd','scan'
+];
+let counterVisibleColumns=new Set(COUNTER_DEFAULT_COLUMNS);
+try{
+  const saved=JSON.parse(localStorage.getItem('atprintix-counter-visible-columns-v1')||'null');
+  if(Array.isArray(saved))counterVisibleColumns=new Set(saved.filter(id=>COUNTER_COLUMN_DEFS.some(col=>col.id===id)));
+}catch{}
+function renderCounterColumnPicker(){
+  const panel=$('counterColumnOptions');
+  if(!panel)return;
+  panel.innerHTML='<div class="picker-title">Columnas visibles · Contadores</div>'+
+    COUNTER_COLUMN_DEFS.map(col=>'<label><input type="checkbox" data-counter-column="'+col.id+'" '+(counterVisibleColumns.has(col.id)?'checked':'')+' onchange="setCounterColumnVisible(\\''+col.id+'\\',this.checked)">'+escapeHtml(col.label)+'</label>').join('');
+}
+function syncCounterColumnChecks(){
+  document.querySelectorAll('[data-counter-column]').forEach(input=>{
+    input.checked=counterVisibleColumns.has(input.dataset.counterColumn);
+  });
+}
+function setCounterColumnVisible(id,visible){
+  if(!COUNTER_COLUMN_DEFS.some(col=>col.id===id))return;
+  if(visible)counterVisibleColumns.add(id);else counterVisibleColumns.delete(id);
+  try{localStorage.setItem('atprintix-counter-visible-columns-v1',JSON.stringify([...counterVisibleColumns]))}catch{}
+  renderCounterRows();
+  syncCounterColumnChecks();
+}
+function counterDisplayValue(value){
+  if(value===null||value===undefined||value==='')return '—';
+  const number=Number(value);
+  return Number.isFinite(number)?number.toLocaleString('es-PY'):String(value);
+}
+
 function aggregateCounterPeriodRows(dailyRows){
   const project=projects.find(x=>String(x.id)===String(currentProjectId));
   const projectName=project?.name||project?.project_name||project?.nombre||'—';
@@ -4299,7 +4409,7 @@ function aggregateCounterPeriodRows(dailyRows){
         first_page_count:null,last_page_count:null,total_general_pages:null,total_black_pages:null,total_color_pages:null,
         first_scanner_count:null,last_scanner_count:null,total_scans:null,
         first_copy_count:null,last_copy_count:null,total_copies:null,
-        status:r.status||'',agent:r.agent||'',reading_count:0,reading_days:0,
+        status:r.status||'',agent:r.agent||'',reading_count:0,reading_days:0,counterMetrics:{},
         _firstTime:Infinity,_lastTime:-Infinity,_print:0,_black:0,_color:0,_scans:0,_copies:0
       };
       groups.set(key,item);
@@ -4339,6 +4449,23 @@ function aggregateCounterPeriodRows(dailyRows){
     addTotal(item,'_color',pick(r,['total_color_pages','color_pages_printed','pages_color']));
     addTotal(item,'_scans',pick(r,['scans_count','total_scans','scans_printed']));
     addTotal(item,'_copies',pick(r,['total_copies','copies_count','copies_printed']));
+    for(const metric of COUNTER_METRIC_DEFS){
+      const startValue=pick(r,metric.start);
+      const endValue=pick(r,metric.end);
+      const totalValue=pick(r,metric.total);
+      let stored=item.counterMetrics[metric.id];
+      if(!stored)stored={start:null,end:null,_sum:0,_hasSum:false};
+      if(startValue!==null&&stored.start===null)stored.start=startValue;
+      if(endValue!==null)stored.end=endValue;
+      if(totalValue!==null){
+        stored._sum+=totalValue;
+        stored._hasSum=true;
+      }else if(startValue!==null&&endValue!==null&&endValue>=startValue){
+        stored._sum+=(endValue-startValue);
+        stored._hasSum=true;
+      }
+      item.counterMetrics[metric.id]=stored;
+    }
   }
   return [...groups.values()].map(item=>{
     // Preferimos la suma de diferencias guardadas entre lecturas. Solo si no hay
@@ -4358,6 +4485,13 @@ function aggregateCounterPeriodRows(dailyRows){
     }
     item.total_scans=item._has__scans?item._scans:null;
     item.total_copies=item._has__copies?item._copies:null;
+    for(const metric of COUNTER_METRIC_DEFS){
+      const stored=item.counterMetrics[metric.id];
+      if(!stored)continue;
+      let total=stored._hasSum?stored._sum:null;
+      if(total===null&&stored.start!==null&&stored.end!==null&&stored.end>=stored.start)total=stored.end-stored.start;
+      item.counterMetrics[metric.id]={start:stored.start,end:stored.end,total:total};
+    }
     delete item._firstTime;delete item._lastTime;
     delete item._print;delete item._black;delete item._color;delete item._scans;delete item._copies;
     delete item._has__print;delete item._has__black;delete item._has__color;delete item._has__scans;delete item._has__copies;
@@ -4366,35 +4500,32 @@ function aggregateCounterPeriodRows(dailyRows){
 }
 function renderCounterRows(){
   const body=$('counterBody');
-  if(!body)return;
+  const table=$('counterResizableTable');
+  const head=table?.tHead?.rows?.[0];
+  if(!body||!head)return;
+  const columns=COUNTER_COLUMN_DEFS.filter(col=>counterVisibleColumns.has(col.id));
+  head.innerHTML=columns.map(col=>'<th>'+escapeHtml(col.label)+'</th>').join('');
   if(!counterRows.length){
-    body.innerHTML='<tr><td colspan="18" class="empty">No hay lecturas guardadas de impresoras en el período.</td></tr>';
+    body.innerHTML='<tr><td colspan="'+Math.max(1,columns.length)+'" class="empty">No hay lecturas guardadas de impresoras en el período.</td></tr>';
+    renderCounterColumnPicker();
+    syncCounterColumnChecks();
     return;
   }
-  const show=v=>v===null||v===undefined||v===''?'—':Number(v).toLocaleString('es-PY');
-  const dt=v=>v?new Date(v).toLocaleString('es-PY'):'—';
   body.innerHTML=counterRows.map(r=>{
-    return '<tr>'+
-      '<td>'+escapeHtml(r.project_name||'—')+'</td>'+
-      '<td>'+escapeHtml(r.manufacturer||'—')+'</td>'+
-      '<td>'+escapeHtml(r.model||r.printer||'—')+'</td>'+
-      '<td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora, no el serial de activación del proyecto" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>'+
-      '<td>'+escapeHtml(r.ip_address||'—')+'</td>'+
-      '<td>'+escapeHtml(dt(r.first_reading_at))+'</td>'+
-      '<td>'+escapeHtml(dt(r.last_reading_at))+'</td>'+
-      '<td>'+escapeHtml(show(r.first_page_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.last_page_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.total_general_pages))+'</td>'+
-      '<td>'+escapeHtml(show(r.total_black_pages))+'</td>'+
-      '<td>'+escapeHtml(show(r.total_color_pages))+'</td>'+
-      '<td>'+escapeHtml(show(r.first_scanner_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.last_scanner_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.total_scans))+'</td>'+
-      '<td>'+escapeHtml(show(r.first_copy_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.last_copy_count))+'</td>'+
-      '<td>'+escapeHtml(show(r.total_copies))+'</td>'+
-    '</tr>';
+    const cells=columns.map(col=>{
+      if(col.id==='serial'){
+        return '<td><input class="inline-edit serial-edit" type="text" maxlength="120" title="Número de serie físico de la impresora, no el serial de activación del proyecto" placeholder="Serie de fábrica" value="'+escapeHtml(r.serial_number||'')+'" data-printer-id="'+escapeHtml(r.printer_id)+'" data-field="serial_number" onblur="savePrinterInline(this)" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();this.blur();}"></td>';
+      }
+      return '<td>'+escapeHtml(counterDisplayValue(col.value(r)))+'</td>';
+    }).join('');
+    return '<tr>'+cells+'</tr>';
   }).join('');
+  renderCounterColumnPicker();
+  syncCounterColumnChecks();
+  if(currentView==='contadores'){
+    table.dataset.resizePrepared='';
+    prepareResizableTable(table);
+  }
 }
 
 async function exportCountersExcel(){
@@ -4413,29 +4544,11 @@ async function exportCountersExcel(){
     atNotify('No hay lecturas guardadas de impresoras en ese período.'+detail,'error');
     return;
   }
-  const p=projects.find(x=>x.id===currentProjectId);
-  const val=v=>v===null||v===undefined||v===''?'':Number(v);
-  const dt=v=>v?new Date(v).toLocaleString('es-PY'):'';
-  const report=data.map(r=>({
-    Proyecto:r.project_name||p?.name||'',
-    Impresora:r.manufacturer||'',
-    Modelo:r.model||r.printer||'',
-    Serie:r.serial_number||'',
-    IP:r.ip_address||'',
-    'Primera Lectura desde':dt(r.first_reading_at),
-    'Última lectura hasta':dt(r.last_reading_at),
-    'Contador impresión desde':val(r.first_page_count),
-    'Contador impresión hasta':val(r.last_page_count),
-    'Total general de impresión':val(r.total_general_pages),
-    'total Paginas negro':val(r.total_black_pages),
-    'total Páginas color':val(r.total_color_pages),
-    'Contador escáner desde':val(r.first_scanner_count),
-    'Contador escáner hasta':val(r.last_scanner_count),
-    'total Escaneos':val(r.total_scans),
-    'copias desde':val(r.first_copy_count),
-    'copias hasta':val(r.last_copy_count),
-    'total copias':val(r.total_copies)
-  }));
+  const report=data.map(r=>Object.fromEntries(
+    COUNTER_COLUMN_DEFS
+      .filter(col=>counterVisibleColumns.has(col.id))
+      .map(col=>[col.label,col.value(r)])
+  ));
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.json_to_sheet(report);
   fitColumns(ws);
