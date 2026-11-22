@@ -2902,8 +2902,8 @@ function printerManufacturerValue(r){
   const tagged=printerTaggedIdentityValue(r,'MFG|MANUFACTURER|OEM');
   if(tagged)return tagged;
   const model=printerModelRaw(r).toUpperCase();
-  const known=['HP','HEWLETT-PACKARD','SAMSUNG','CANON','BROTHER','RICOH','XEROX','PANTUM','KYOCERA','EPSON','LEXMARK','KONICA MINOLTA','SHARP','TOSHIBA','OKI','DELL','ZEBRA'];
-  return known.find(brand=>model.startsWith(brand+' '))||'';
+  const known=['HP','Hewlett-Packard','Samsung','Canon','Brother','Ricoh','Xerox','Pantum','Kyocera','Epson','Lexmark','Konica Minolta','Sharp','Toshiba','OKI','Dell','Zebra'];
+  return known.find(brand=>model.startsWith(brand.toUpperCase()+' '))||'';
 }
 function printerSerialValue(r){
   const stored=String(r?.serial_number||'').trim();
@@ -2955,11 +2955,11 @@ function connectionLabel(r){
   if(portValues.some(port=>/^USB\d*$/i.test(port.trim())))return 'USB';
   if(portValues.some(port=>/^(?:WSD|IP_|TCP|\\\\)/i.test(port.trim())))return 'NET';
   if(printerIpValue(r)||hasRealIp(r))return 'NET';
-  if(portValues.some(port=>/^(?:LPT|COM|FILE:)/i.test(port.trim())))return 'LOCAL';
+  if(/^(?:local|lpt|com|file)$/i.test(type)||usablePorts.some(port=>/^(?:LPT|COM|FILE:)/i.test(port.trim())))return 'LOCAL';
   const text=printerIdentitySources(r).join(' ; ');
   if(/\bUSB\s*\d{0,5}\b/i.test(text))return 'USB';
   if(/\b(?:ETHERNET|NETWORK|LAN|WI[ -]?FI|WIRELESS|TCP\s*\/?\s*IP)\b/i.test(text))return 'NET';
-  return 'LOCAL';
+  return 'Sin identificar';
 }
 function printerInventoryLabel(r){
   let name=printerModelRaw(r)||'Ver ficha';
@@ -2983,9 +2983,8 @@ function printerInventoryLabel(r){
 function printerIpPort(r){
   const ip=realIpOf(r)||printerIpValue(r);
   if(ip)return ip;
-  const winPort=String(r?.windows_port||'').trim();
-  const usbPort=String(r?.usb_port||'').trim();
-  const port=winPort||usbPort||String(r?.port_name||'').trim();
+  const portCandidates=[r?.windows_port,r?.usb_port,r?.port_name].map(v=>String(v||'').trim()).filter(v=>v&&!/(?:PCL|POSTSCRIPT|\\bPS\\b|UFR|BR[- ]?SCRIPT|XPS|IPP CLASS)/i.test(v));
+  const port=portCandidates[0]||'';
   if(/^WSD(?:[-_\s].*)?$/i.test(port))return 'WSD';
   if(port)return port;
   const sources=printerIdentitySources(r);
