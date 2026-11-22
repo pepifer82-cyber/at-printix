@@ -1,1 +1,1 @@
-Re-run build with corrected path exclusions for the separately patched installer and README.
+Retry build after matching git apply command exclusions to validation step.
