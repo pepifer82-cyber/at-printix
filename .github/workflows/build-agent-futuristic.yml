@@ -6,6 +6,8 @@ on:
       - agent-rebuild/futuristic-0.5.4
     paths:
       - .github/workflows/build-agent-futuristic.yml
+      - agent/rebuild/**
+      - agent/verify-build.ps1
   workflow_dispatch:
 
 permissions:
