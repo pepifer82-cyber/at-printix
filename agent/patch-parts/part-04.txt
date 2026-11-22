@@ -43,7 +43,6 @@
     "Activar".
  3. El agente queda en la bandeja del sistema (junto al reloj) y arranca con
 @@ -42,15 +51,14 @@
- 
  Notas:
  - La activacion y la configuracion se guardan por usuario en
    %LOCALAPPDATA%\ATPrinterAgent\config.json (protegida con DPAPI).
@@ -97,4 +96,5 @@
  set "SIGNTOOL="
 --- a/agent-v0.5.3/src/ATPrinterAgent.csproj
 +++ b/agent-v0.5.3/src/ATPrinterAgent.csproj
+@@ -1,4 +1,4 @@
 -﻿<Project Sdk="Microsoft.NET.Sdk">
