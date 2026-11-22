@@ -1,1 +1,1 @@
-Rebuild after adding patch gzip SHA-256 validation to diagnose archive transfer.
+Run build after rebuilding exact 0.5.4 patch segments and checksum verification.
