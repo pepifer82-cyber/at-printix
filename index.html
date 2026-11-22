@@ -2862,16 +2862,19 @@ function printerInventoryLabel(r){
   const manufacturer=String(r?.manufacturer||'').trim();
   // Algunos equipos envían la identificación IEEE-1284 completa en el campo modelo.
   // En ese caso, MDL contiene el modelo comercial; MFG/CMD/CLS/DES son metadatos.
-  const mdl=name.match(/(?:^|[;\s])MDL\s*:\s*([^;\r\n]+)/i);
-  if(mdl?.[1]){
-    name=mdl[1].trim();
+  // Priorizar campos explícitos de modelo/producto en cadenas de identificación de cualquier fabricante.
+  // Ej.: PID:HP Color LaserJet MFP M182nw o MDL:BM5100FDW series.
+  const explicitModel=name.match(/(?:^|[;,])\s*(?:MDL|PID|MODEL|PRODUCT(?:\s+NAME)?)\s*[:=]\s*([^;,\r\n]+)/i);
+  if(explicitModel?.[1]){
+    name=explicitModel[1].trim();
   }else{
-    // Samsung y otros controladores pueden enviar modelo + firmware + motor + red + serie.
-    // Si el texto está estructurado por punto y coma, mostrar únicamente el primer identificador.
-    const parts=name.split(';').map(part=>part.trim()).filter(Boolean);
-    const hasTechnicalFields=parts.length>1&&parts.slice(1).some(part=>/^(?:V\d|ENGINE\b|NIC\b|S\/?N\s*[:：]?|SERIAL(?:\s*(?:NO|NUMBER))?\s*[:：]?|FW\b|FIRMWARE\b)/i.test(part));
-    if(hasTechnicalFields)name=parts[0];
+    // Si no hay etiqueta de modelo, quitar campos técnicos (SN, FN, SVCID, firmware, NIC, etc.).
+    // No alterar nombres simples sin estructura.
+    const parts=name.split(/[;,]/).map(part=>part.trim()).filter(Boolean);
+    const hasTechnicalFields=parts.length>1&&parts.slice(1).some(part=>/^(?:SN|S\/?N|SERIAL(?:\s*(?:NO|NUMBER))?|FN|SVCID|SERVICE(?:\s*ID)?|V\d|ENGINE\b|NIC\b|FW\b|FIRMWARE\b|CMD|MFG|CLS|DES)\s*[:：=]?/i.test(part));
+    if(hasTechnicalFields)name=parts[0].replace(/^#+\s*/,'').trim();
   }
+  name=name.replace(/^#+\s*/,'').trim();
   // Quitar datos de conexión que algunos controladores agregan al nombre/modelo.
   // La conexión real se muestra en su propia columna/ficha, nunca como parte del modelo.
   name=name
