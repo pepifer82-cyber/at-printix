@@ -2874,9 +2874,18 @@ function printerInventoryLabel(r){
     const variants=[manufacturer];
     if(/\bhp\b|hewlett/i.test(manufacturer))variants.push('HP','Hewlett-Packard','Hewlett Packard');
     for(const brand of variants){
-      if(name.toLowerCase().startsWith(brand.toLowerCase()+' '))name=name.slice(brand.length).trim();
+      const lowerName=name.toLowerCase();
+      const lowerBrand=brand.toLowerCase();
+      // La marca pertenece a la columna "Impresora", no al nombre del modelo.
+      if(lowerName.startsWith(lowerBrand+' '))name=name.slice(brand.length).replace(/^[\s:–—-]+/,'').trim();
+      for(const suffix of [' ('+brand+')',' ['+brand+']']){
+        if(name.toLowerCase().endsWith(suffix.toLowerCase()))name=name.slice(0,-suffix.length).trim();
+      }
     }
   }
+  // Si el controlador informa el modelo entre paréntesis, mostrar solo el texto:
+  // "(MP C306Z)" pasa a "MP C306Z"; nunca se modifica el dato guardado.
+  name=name.replace(/^\(\s*([\s\S]*?)\s*\)$/,'$1').trim();
   return name||'Ver ficha';
 }
 function printerIpPort(r){
