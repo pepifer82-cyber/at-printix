@@ -68,18 +68,31 @@ icon_target.write_bytes(icon_bytes)
 
 project_file = source_root / "src" / "ATPrinterAgent.csproj"
 project_text = project_file.read_text(encoding="utf-8-sig")
-if "<ApplicationIcon>" not in project_text:
+project_text, count = re.subn(
+    r"<ApplicationIcon>.*?</ApplicationIcon>",
+    r"<ApplicationIcon>Resources\\AT_Printix_Agent_Icon.ico</ApplicationIcon>",
+    project_text,
+    count=1,
+)
+if count == 0:
     project_text, count = re.subn(
         r"(<PropertyGroup(?:\s[^>]*)?>)",
         r"\1\n    <ApplicationIcon>Resources\\AT_Printix_Agent_Icon.ico</ApplicationIcon>",
         project_text,
         count=1,
     )
-    if count != 1:
-        raise SystemExit("No se pudo registrar el icono en ATPrinterAgent.csproj.")
+if count != 1:
+    raise SystemExit("No se pudo asignar el icono A&T al ejecutable.")
 project_file.write_text(project_text, encoding="utf-8-sig", newline="\n")
 
-if "SetupIconFile=" not in text:
+if re.search(r"(?im)^SetupIconFile\s*=", text):
+    text, count = re.subn(
+        r"(?im)^SetupIconFile\s*=.*$",
+        r"SetupIconFile=src\\Resources\\AT_Printix_Agent_Icon.ico",
+        text,
+        count=1,
+    )
+else:
     marker = "WizardStyle=modern"
     if marker not in text:
         raise SystemExit("No se encontró WizardStyle para configurar el icono del instalador.")
@@ -88,7 +101,11 @@ if "SetupIconFile=" not in text:
         marker + "\nSetupIconFile=src\\Resources\\AT_Printix_Agent_Icon.ico",
         1,
     )
+    count = 1
+if count != 1:
+    raise SystemExit("No se pudo asignar el icono A&T al instalador.")
 iss.write_text(text, encoding="utf-8-sig", newline="\n")
+
 
 
 main_form = source_root / "src" / "UI" / "MainForm.cs"
