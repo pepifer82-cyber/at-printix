@@ -1,5 +1,5 @@
 from pathlib import Path
-import gzip, hashlib, re, subprocess, sys, zipfile
+import base64, gzip, hashlib, re, subprocess, sys, zipfile
 
 workspace = Path.cwd()
 source_root = workspace / "agent-v0.5.3"
@@ -57,8 +57,8 @@ theme_target.write_text(theme_source.read_text(encoding="utf-8"), encoding="utf-
 icon_archive = workspace / "agent" / "rebuild" / "AT_Printix_Agent_Icon.ico.gz"
 if not icon_archive.exists():
     raise SystemExit("Falta el icono comprimido A&T Printix del agente.")
-with gzip.open(icon_archive, "rb") as stream:
-    icon_bytes = stream.read()
+compressed_icon = base64.b64decode(icon_archive.read_text(encoding="ascii").strip(), validate=True)
+icon_bytes = gzip.decompress(compressed_icon)
 if not icon_bytes.startswith(b"\x00\x00\x01\x00"):
     raise SystemExit("El recurso recibido no es un archivo ICO válido.")
 resources = source_root / "src" / "Resources"
