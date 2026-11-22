@@ -3508,7 +3508,7 @@ function stripPrinterDriverSuffix(value){
   const tail=new RegExp("\\s+(?:series\\s*)?[\\\"']?\\s*(?:\\(\\s*)?"+driver+"(?:\\s+(?:\\d{1,6}|V\\d+(?:\\.\\d+)*))?(?:\\s*\\(V\\d+(?:\\.\\d+)*\\))?\\s*\\)?[\\\"']?\\s*$","i");
   for(let i=0;i<4;i++){
     const previous=out;
-    out=out.replace(tail,'').replace(/[\\s,;]+$/,'').trim();
+    out=out.replace(tail,'').replace(/[\s,;]+$/,'').trim();
     if(out===previous)break;
   }
   return out;
