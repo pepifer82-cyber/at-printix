@@ -1,1 +1,1 @@
-Validate reconstructed patch with LF-normalized checksum and git apply context checks.
+Use verified non-installer patch and apply the dedicated Inno Setup clean-install script.
