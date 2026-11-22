@@ -1,0 +1,1 @@
+Trigger a new isolated build after removing the unsupported Authenticode query from CI-only verification.
