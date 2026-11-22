@@ -5,8 +5,7 @@ on:
     branches:
       - agent/0.5.7-silent-build
     paths:
-      - ".github/workflows/build-agent-v0.5.7.yml"
-      - "agent/patch-0.5.7/**"
+      - "agent/patch-0.5.7/READY"
   workflow_dispatch:
 
 permissions:
@@ -89,7 +88,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $partsDir = Join-Path $env:GITHUB_WORKSPACE "agent/patch-0.5.7"
           $encoded = ""
-          foreach ($name in @("part-01.b64","part-02.b64","part-03.b64","part-04.b64")) {
+          foreach ($name in @("part-01.b64","part-02.b64","part-03.b64","part-04.b64","part-05.b64")) {
             $path = Join-Path $partsDir $name
             if (-not (Test-Path $path)) { throw "Missing 0.5.7 patch chunk: $name" }
             $encoded += [IO.File]::ReadAllText($path, [Text.Encoding]::ASCII).Trim()
@@ -98,7 +97,7 @@ jobs:
           $gzip = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch.gz"
           [IO.File]::WriteAllBytes($gzip, $bytes)
           $gzipHash = (Get-FileHash $gzip -Algorithm SHA256).Hash.ToLowerInvariant()
-          $expectedGzipHash = "592d928f01c5d69dad418925a36ff62b01596d9c63e65bfe4fcd5a9cabdac719"
+          $expectedGzipHash = "56475ff93e85d5270f7ab925d31bfc27173fbd25becabc64e9a9385933dffcd1"
           if ($gzipHash -ne $expectedGzipHash) { throw "0.5.7 patch gzip SHA-256 mismatch: $gzipHash" }
           $patch = Join-Path $env:RUNNER_TEMP "agent-v0.5.7.patch"
           $input = [IO.File]::OpenRead($gzip)
