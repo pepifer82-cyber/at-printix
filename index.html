@@ -5828,14 +5828,35 @@ async function loadRenewalRequests(){
       const contact=[r.contact_email,r.contact_phone].filter(Boolean).map(escapeHtml).join('<br>')||'—';
       const payment={bank_transfer:'Transferencia',qr:'QR',cash:'Efectivo',other:'Coordinar'}[r.payment_method]||r.payment_method;
       const options=Object.entries(renewalStatusLabels).map(([value,label])=>'<option value="'+value+'" '+(r.status===value?'selected':'')+'>'+label+'</option>').join('');
-      const prepare= r.requested_plan_id ? '<button class="icon-btn" type="button" onclick="prepareSubscriptionFromRequest('+JSON.stringify(r.company_id)+','+JSON.stringify(r.requested_plan_id)+','+Number(r.requested_amount||0)+','+JSON.stringify(r.billing_cycle||'monthly')+')">Preparar licencia</button>' : '';
+      const prepare= r.requested_plan_id ? '<button class="icon-btn" type="button" data-renewal-prepare="1" data-company-id="'+escapeHtml(r.company_id)+'" data-plan-id="'+escapeHtml(r.requested_plan_id)+'" data-amount="'+Number(r.requested_amount||0)+'" data-cycle="'+escapeHtml(r.billing_cycle||'monthly')+'">Preparar licencia</button>' : '';
       const wa=renewalWhatsAppLink(r);
       const waButton=wa?'<a class="icon-btn" target="_blank" rel="noopener" href="'+escapeHtml(wa)+'">Responder por WhatsApp</a>':'<span class="muted">Sin WhatsApp</span>';
       const readButton=r.read_at
         ?'<span class="muted" title="Leída '+escapeHtml(new Date(r.read_at).toLocaleString('es-PY'))+'">✓ Leída</span>'
-        :'<button class="icon-btn" type="button" onclick="markRenewalRequestRead('+JSON.stringify(r.id)+')">✓ Marcar leída</button>';
-      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+readButton+waButton+prepare+'<select class="renewal-state-select" id="renewalStatus-'+r.id+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+r.id+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" onclick="saveRenewalRequestStatus('+JSON.stringify(r.id)+')">Guardar estado</button></div></td></tr>';
+        :'<button class="icon-btn" type="button" data-renewal-read-id="'+escapeHtml(r.id)+'">✓ Marcar leída</button>';
+      return '<tr><td>'+escapeHtml(when)+'</td><td><b>'+escapeHtml(r.company_name)+'</b><br><small>'+escapeHtml(r.company_code)+'</small></td><td>'+escapeHtml(reqType)+'</td><td>'+plan+(r.billing_cycle?' <small>· '+escapeHtml(renewalPlanLabels[r.billing_cycle]||r.billing_cycle)+'</small>':'')+'</td><td>'+contact+'</td><td>'+escapeHtml(payment)+'</td><td>'+escapeHtml(r.message||'—')+'</td><td><div class="renewal-row-actions">'+readButton+waButton+prepare+'<select class="renewal-state-select" id="renewalStatus-'+escapeHtml(r.id)+'">'+options+'</select><input class="renewal-note-input" id="renewalNote-'+escapeHtml(r.id)+'" maxlength="1200" placeholder="Nota interna" value="'+escapeHtml(r.admin_note||'')+'"><button class="icon-btn" type="button" data-renewal-save-id="'+escapeHtml(r.id)+'">Guardar estado</button></div></td></tr>';
     }).join(''):'<tr><td colspan="8" class="empty">Todavía no hay solicitudes de renovación.</td></tr>';
+
+    // Delegación de eventos: evita problemas de comillas en atributos HTML
+    // y mantiene las acciones activas después de cada actualización de la bandeja.
+    if(body.dataset.renewalActionsBound!=='1'){
+      body.addEventListener('click',event=>{
+        const read=event.target.closest('[data-renewal-read-id]');
+        if(read){void markRenewalRequestRead(read.dataset.renewalReadId);return}
+        const save=event.target.closest('[data-renewal-save-id]');
+        if(save){void saveRenewalRequestStatus(save.dataset.renewalSaveId);return}
+        const prepare=event.target.closest('[data-renewal-prepare]');
+        if(prepare){
+          prepareSubscriptionFromRequest(
+            prepare.dataset.companyId,
+            prepare.dataset.planId,
+            Number(prepare.dataset.amount||0),
+            prepare.dataset.cycle||'monthly'
+          );
+        }
+      });
+      body.dataset.renewalActionsBound='1';
+    }
   }catch(e){$('renewalRequestsMsg').textContent='No se pudieron cargar las solicitudes: '+e.message}
 }
 function prepareSubscriptionFromRequest(companyId,planId,amount,cycle){
