@@ -2984,6 +2984,19 @@ function rowsContainDifferentUsbInstances(records){
   }
   return false;
 }
+function hasAmbiguousUsbIdentity(row,records){
+  if(printerTransportKind(row)!=='usb')return false;
+  const serial=String(row?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const mac=String(row?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
+  if(!serial&&mac.length!==12)return false;
+  const peers=(Array.isArray(records)?records:[]).filter(other=>{
+    if(other===row||printerTransportKind(other)!=='usb')return false;
+    const otherSerial=String(other?.serial_number||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    const otherMac=String(other?.mac_address||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'');
+    return (!!serial&&serial===otherSerial)||(mac.length===12&&mac===otherMac);
+  });
+  return rowsContainDifferentUsbInstances([row,...peers]);
+}
 function printerUsbCounterGroupKey(r){
   const endpoint=printerUsbInstanceDescriptor(r);
   if(!endpoint)return 'usb-record:'+String(r?.printer_id||r?.id||'unknown');
@@ -3122,8 +3135,11 @@ function dedupePrinterRows(source){
     const kind=printerTransportKind(input[i]);
     if(kind!=='usb'&&kind!=='queue')continue;
     const targets=[];
+    if(kind==='usb'&&hasAmbiguousUsbIdentity(input[i],input))continue;
     for(let g=0;g<groups.length;g++){
-      const network=groups[g].map(k=>input[k]).find(r=>!!realIpOf(r));
+      const groupRows=groups[g].map(k=>input[k]);
+      if(kind==='usb'&&rowsContainDifferentUsbInstances([...groupRows,input[i]]))continue;
+      const network=groupRows.find(r=>!!realIpOf(r));
       if(network&&samePhysicalTransportAlias(network,input[i]))targets.push(g);
     }
     if(targets.length===1){
