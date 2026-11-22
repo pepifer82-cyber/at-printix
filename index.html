@@ -2970,9 +2970,6 @@ function printerIdentityKey(r){
   if(serial)return 'serial:'+serial;
   const mac=printerMacIdentityKey(r);
   if(mac)return 'mac:'+mac;
-  const ip=realIpOf(r);
-  if(ip)return 'ip:'+ip.toLowerCase();
-
   const agent=String(r?.agent_code||r?.agent_id||'').trim().toLowerCase();
   const usbDescriptor=printerUsbInstanceDescriptor(r);
   if(usbDescriptor)return 'usb:'+agent+'|'+usbDescriptor.kind+':'+usbDescriptor.value;
@@ -3279,21 +3276,8 @@ function dedupePrinterRows(source){
     }
   }
 
-  // Una IP compartida consolida alias de red, no distintas instancias USB.
-  for(let i=0;i<input.length;i++){
-    if(used.has(i))continue;
-    const ip=realIpOf(input[i]).toLowerCase();
-    if(!ip)continue;
-    const indexes=[];
-    for(let j=i;j<input.length;j++){
-      if(used.has(j)||realIpOf(input[j]).toLowerCase()!==ip)continue;
-      if(indexes.some(k=>serialConflict(input[k],input[j])))continue;
-      indexes.push(j);
-    }
-    if(indexes.length>1&&!rowsContainDifferentUsbInstances(indexes.map(j=>input[j]))){
-      addIdentityGroup(indexes);
-    }
-  }
+  // La IP es un dato de conexión, no una identidad física permanente.
+  // No se fusionan registros por IP: serie/MAC coincidentes ya se agrupan arriba.
 
   // No fusionar USB y red solo por parecer el mismo modelo. Se requiere
   // coincidencia física de serie o MAC, además de marca/modelo compatibles.
