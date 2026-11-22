@@ -1,0 +1,296 @@
+--- a/agent-v0.5.3/AandTPrinterAgent.iss
++++ b/agent-v0.5.3/AandTPrinterAgent.iss
+@@ -1,5 +1,5 @@
+-﻿#define MyAppName "A&T Printer Agent"
+-#define MyAppVersion "0.5.3"
++#define MyAppName "A&T Printer Agent"
++#define MyAppVersion "0.5.4"
+ #define MyPublisher "A&T Informatica"
+ #define MyAppExeName "ATPrinterAgent.exe"
+ 
+@@ -9,8 +9,8 @@
+ AppName={#MyAppName}
+ AppVersion={#MyAppVersion}
+ AppPublisher={#MyPublisher}
+-VersionInfoVersion=0.5.3.0
+-VersionInfoProductVersion=0.5.3
++VersionInfoVersion=0.5.4.0
++VersionInfoProductVersion=0.5.4
+ VersionInfoProductName=A&T Printer Agent
+ VersionInfoDescription=A&T Printer Agent Setup
+ VersionInfoCompany=A&T Informatica
+ 
+@@ -21,7 +21,7 @@
+ ArchitecturesAllowed=x86 x64
+ ArchitecturesInstallIn64BitMode=x64
+ OutputDir=.
+-OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.3
++OutputBaseFilename=Instalar_ATPrinterAgent_v0.5.4
+ Compression=lzma2
+ SolidCompression=yes
+ WizardStyle=modern
+@@ -73,7 +73,6 @@
+   LegacyAppIdNeedle = '{7E7D49A0';
+ 
+ var
+-  LegacyRemoved: Boolean;
+   FullCleanRequested: Boolean;
+   PreviousVersionInstalled: Boolean;
+ 
+@@ -223,36 +222,83 @@
+ 
+ { Quita las comillas exteriores de una ruta. }
+ function StripOuterQuotes(const S: String): String;
++var
++  closingQuote: Integer;
+ begin
+   Result := Trim(S);
+-  if (Length(Result) >= 2) and (Copy(Result, 1, 1) = '"') and (Copy(Result, Length(Result), 1) = '"') then
+-    Result := Copy(Result, 2, Length(Result) - 2);
+-end;
+-
+-{ Busca unicamente agentes de A&T: por AppId historico o por nombre A&T.
+-  Evita tocar agentes de otros fabricantes con "Printer Agent" en el nombre. }
+-procedure ScanLegacyAgents(Root: Integer; List: TStringList);
++  if (Length(Result) > 0) and (Copy(Result, 1, 1) = '"') then
++  begin
++    closingQuote := Pos('"', Copy(Result, 2, Length(Result) - 1));
++    if closingQuote > 0 then
++      Result := Copy(Result, 2, closingQuote - 1);
++  end
++  else
++  begin
++    closingQuote := Pos(' ', Result);
++    if closingQuote > 0 then Result := Copy(Result, 1, closingQuote - 1);
++  end;
++end;
++
++{ Detecta unicamente instalaciones de A&T por AppId historico o nombre exacto de producto. }
++procedure ScanPreviousAandT(Root: Integer; List: TStringList);
+ var
+   Names: TArrayOfString;
+   i: Integer;
+   Base, key, dn, un: String;
++  isCurrent, isLegacy, isNamedAandT: Boolean;
+ begin
+   Base := 'Software\Microsoft\Windows\CurrentVersion\Uninstall';
+   if not RegGetSubkeyNames(Root, Base, Names) then Exit;
+   for i := 0 to GetArrayLength(Names) - 1 do
+   begin
+     key := Base + '\' + Names[i];
+-    if not RegQueryStringValue(Root, key, 'DisplayName', dn) then Continue;
+-    if Pos(CurrentAppIdNeedle, Uppercase(Names[i])) > 0 then Continue;
+-
+-    if (Pos(LegacyAppIdNeedle, Uppercase(Names[i])) = 0) and
+-       ((Pos('PRINTER AGENT', Uppercase(dn)) = 0) or
+-        ((Pos('A&T', dn) = 0) and (Pos('AANDT', Uppercase(dn)) = 0))) then
+-      Continue;
+-
++    dn := '';
++    RegQueryStringValue(Root, key, 'DisplayName', dn);
++    isCurrent := Pos(CurrentAppIdNeedle, Uppercase(Names[i])) > 0;
++    isLegacy := Pos(LegacyAppIdNeedle, Uppercase(Names[i])) > 0;
++    isNamedAandT := (Pos('A&T PRINTER AGENT', Uppercase(dn)) > 0) or
++                    (Pos('AANDT PRINTER AGENT', Uppercase(dn)) > 0);
++    if not (isCurrent or isLegacy or isNamedAandT) then Continue;
++    if dn = '' then dn := 'A&T Printer Agent';
++    un := '';
+     if GetQuietOrNormalUninstall(Root, key, un) then
+       List.Add(dn + '|' + un);
+   end;
++end;
++
++function ProfileHasAgentData(const ProfilePath: String): Boolean;
++var
++  base: String;
++begin
++  base := AddBackslash(ProfilePath);
++  Result := DirExists(base + 'AppData\Local\ATPrinterAgent') or
++            DirExists(base + 'AppData\Local\ATPrinterAgent-v043-migration') or
++            DirExists(base + 'AppData\Local\ATPrinterAgent-v041') or
++            DirExists(base + 'AppData\Local\ATPrinterAgent-v040') or
++            DirExists(base + 'AppData\Roaming\ATPrinterAgent');
++end;
++
++function AnyAgentDataArtifacts(): Boolean;
++var
++  Names: TArrayOfString;
++  i: Integer;
++  profile: String;
++begin
++  Result := ProfileHasAgentData(ExpandConstant('{userprofile}')) or
++            DirExists(ExpandConstant('{commonappdata}\ATPrinterAgent'));
++  if Result then Exit;
++
++  if RegGetSubkeyNames(HKEY_LOCAL_MACHINE,
++       'SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList', Names) then
++    for i := 0 to GetArrayLength(Names) - 1 do
++      if RegQueryStringValue(HKEY_LOCAL_MACHINE,
++           'SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + Names[i],
++           'ProfileImagePath', profile) then
++        if ProfileHasAgentData(profile) then
++        begin
++          Result := True;
++          Exit;
++        end
+ end;
+ 
+ function CurrentInstallVersion(): String;
+@@ -294,76 +340,105 @@
+ 
+ function InitializeSetup(): Boolean;
+ var
+-  version: String;
+-begin
+-  FullCleanRequested := HasCommandLineParam('/FULLCLEAN');
++  List: TStringList;
++  i, sep: Integer;
++  item, details, version: String;
++  foundPrior: Boolean;
++begin
++  FullCleanRequested := HasCommandLineParam('/FULLCLEAN') and IsSilentInstall();
+   version := CurrentInstallVersion();
+   PreviousVersionInstalled := version <> '';
+ 
+-  if (version <> '') and (not IsSilentInstall()) and (not FullCleanRequested) then
+-  begin
+-    if MsgBox('Ya hay una instalación de A&T Printer Agent (' + version + ').' + #13#10 #13#10 +
+-              '¿Quieres una instalación limpia?' + #13#10 #13#10 +
+-              'Sí: borra también la activación, la configuración y la caché anteriores. Habrá que pegar el serial otra vez.' + #13#10 +
+-              'No: actualiza conservando la activación y la configuración.',
+-              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+-      FullCleanRequested := True;
+-  end;
+-
+-  Result := True;
+-end;
+-
+-function PrepareToInstall(var NeedsRestart: Boolean): String;
+-var
+-  List: TStringList;
+-  i, sep, rcode: Integer;
+-  item, un, path, msg: String;
+-begin
+-  Result := '';
++  // Las actualizaciones silenciosas desde el panel conservan serial/configuracion.
++  if IsSilentInstall() and (not FullCleanRequested) then
++  begin
++    Result := True;
++    Exit;
++  end;
+ 
+   List := TStringList.Create;
+   try
+-    ScanLegacyAgents(HKEY_LOCAL_MACHINE, List);
+-    ScanLegacyAgents(HKEY_CURRENT_USER, List);
+-
+-    if List.Count > 0 then
++    List.Sorted := True;
++    List.Duplicates := dupIgnore;
++    ScanPreviousAandT(HKEY_LOCAL_MACHINE, List);
++    ScanPreviousAandT(HKEY_CURRENT_USER, List);
++    foundPrior := (List.Count > 0) or AnyAgentDataArtifacts();
++
++    if foundPrior and (not FullCleanRequested) then
+     begin
+-      msg := '';
++      details := '';
+       for i := 0 to List.Count - 1 do
+       begin
+         item := List[i];
+         sep := Pos('|', item);
+-        msg := msg + '  - ' + Copy(item, 1, sep - 1) + #13#10;
++        if sep > 0 then details := details + '  - ' + Copy(item, 1, sep - 1) + #13#10;
+       end;
+-
+-      // Interactivo: preguntar. Silencioso (update remoto): desinstalar sin preguntar.
+-      if WizardSilent() or
+-         (MsgBox('Se detectaron instalaciones anteriores del agente:' #13#10 #13#10 +
+-                 msg + #13#10 +
+-                 '¿Desinstalarlas antes de continuar? Se eliminan por completo, incluida la activación anterior, para que la nueva instalación arranque limpia.',
+-                 mbConfirmation, MB_YESNO) = IDYES) then
++      if details = '' then details := '  - Datos/configuración residual de A&T detectados.' + #13#10;
++
++      if MsgBox('Se detectó una instalación anterior de A&T Printer Agent o datos de una versión previa:' + #13#10 #13#10 +
++                details + #13#10 +
++                '¿Desinstalar las versiones anteriores y borrar sus activaciones/configuraciones antes de instalar A&T Printer Agent 0.5.4?' + #13#10 #13#10 +
++                'Sí: desinstala los agentes A&T anteriores y deja esta instalación completamente limpia. Después deberás ingresar manualmente el serial del proyecto.' + #13#10 +
++                'No: cancela la instalación sin modificar nada.',
++                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
++        FullCleanRequested := True
++      else
+       begin
+-        for i := 0 to List.Count - 1 do
+-        begin
+-          item := List[i];
+-          sep := Pos('|', item);
+-          un := Copy(item, sep + 1, Length(item));
+-          path := StripOuterQuotes(un);
+-          if path <> '' then
+-          begin
+-            Exec(path, '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES', '',
+-                 SW_SHOW, ewWaitUntilTerminated, rcode);
+-            LegacyRemoved := True;
+-          end;
+-        end;
+-
+-        // Datos de 0.4.x, arranque automatico y restos compartidos.
+-        WipeAgentArtifacts(True);
++        Result := False;
++        Exit;
+       end;
+     end;
+   finally
+     List.Free;
+   end;
++
++  Result := True;
++end;
++
++function PrepareToInstall(var NeedsRestart: Boolean): String;
++var
++  List: TStringList;
++  i, sep, rcode: Integer;
++  item, un, path: String;
++  launched: Boolean;
++begin
++  Result := '';
++  if not FullCleanRequested then Exit;
++
++  List := TStringList.Create;
++  try
++    List.Sorted := True;
++    List.Duplicates := dupIgnore;
++    ScanPreviousAandT(HKEY_LOCAL_MACHINE, List);
++    ScanPreviousAandT(HKEY_CURRENT_USER, List);
++
++    // Retira cada desinstalador registrado de A&T, incluido el AppId de la linea 0.5.x.
++    for i := 0 to List.Count - 1 do
++    begin
++      item := List[i];
++      sep := Pos('|', item);
++      if sep <= 0 then Continue;
++      un := Copy(item, sep + 1, Length(item));
++      path := StripOuterQuotes(un);
++      if path = '' then Continue;
++
++      launched := Exec(path, '/VERYSILENT /FULLCLEAN /NORESTART /SUPPRESSMSGBOXES',
++                       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++      if (not launched) or (rcode <> 0) then
++      begin
++        Result := 'No se pudo desinstalar la versión anterior de A&T (' + Copy(item, 1, sep - 1) + '). Código: ' + IntToStr(rcode) + '. La instalación nueva se canceló para evitar mezclar archivos.';
++        Exit;
++      end;
++    end;
++  finally
++    List.Free;
++  end;
++
++  // Cierra cualquier proceso residual y borra TODOS los datos locales A&T
++  // en los perfiles Windows. No se toca el proyecto ni las licencias de Supabase.
++  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM ATPrinterAgent.exe /T /F',
++       '', SW_HIDE, ewWaitUntilTerminated, rcode);
++  WipeAgentArtifacts(False);
+ end;
+ 
+ procedure CurStepChanged(CurStep: TSetupStep);
