@@ -19,7 +19,6 @@
  VersionInfoProductName=A&T Printer Agent
  VersionInfoDescription=A&T Printer Agent Setup
  VersionInfoCompany=A&T Informatica
- 
 @@ -21,7 +21,7 @@
  ArchitecturesAllowed=x86 x64
  ArchitecturesInstallIn64BitMode=x64
@@ -29,7 +28,6 @@
  Compression=lzma2
  SolidCompression=yes
  WizardStyle=modern
- 
 @@ -73,7 +73,6 @@
    LegacyAppIdNeedle = '{7E7D49A0';
  
