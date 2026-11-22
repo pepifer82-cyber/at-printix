@@ -3,7 +3,7 @@ name: Build A&T Printix Agent 0.5.5 Futuristic
 on:
   push:
     branches:
-      - agent-rebuild/futuristic-0.5.5
+      - agent-rebuild/futuristic-0.5.4
     paths:
       - .github/workflows/build-agent-futuristic.yml
       - agent/rebuild/**
