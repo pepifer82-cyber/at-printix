@@ -1,0 +1,1 @@
+Trigger the isolated build after making the MSI shortcut registry KeyPath per-user (HKCU), matching the per-user Start Menu folder and ICE validation rules.
