@@ -3142,14 +3142,24 @@ function printerTaggedIdentityValue(r,tagPattern){
   }
   return '';
 }
+function isPrinterTransportValue(value){
+  const name=String(value||'').replace(/&#x20;|&nbsp;/gi,' ').trim();
+  if(!name)return true;
+  // Una ruta, dirección o puerto identifica la conexión, no el modelo físico.
+  return /^(?:\\\\|\/\/)/.test(name) ||
+    /^(?:https?|ipp|ipps|socket|lpr|dnssd):\/\//i.test(name) ||
+    /^(?:USB\d*|WSD(?:[-_\s].*)?|IPP(?:[-_\s].*)?|IP[_-]?\d{0,3}(?:[._-]\d{1,3}){0,3}|TCP(?:IP|\/IP|[-_ ]IP)?(?:[-_\s].*)?|LPT\d+|COM\d+|FILE:.*|PORTPROMPT:.*|DOT4_.*|CNBJNP_.*)$/i.test(name) ||
+    /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?::\d{1,5})?$/.test(name) ||
+    /^(?:microsoft )?(?:ipp|wsd|usb|local) class driver$/i.test(name) ||
+    /^(?:pcl(?:\s*\d+)?|postscript|ps class driver|ufr ii|br.script|xps class driver|ipp class driver|class driver)$/i.test(name);
+}
 function printerModelRaw(r){
   const explicit=printerTaggedIdentityValue(r,'MDL|PID|MODEL|PRODUCT(?:\\s+NAME)?');
-  if(explicit)return explicit;
-  const candidates=[r?.model,r?.windows_printer_name,r?.display_name,r?.printer_name,r?.name];
+  if(explicit&&!isPrinterTransportValue(explicit))return explicit;
+  const candidates=[r?.model,r?.windows_printer_name,r?.display_name,r?.printer_name,r?.name,r?.printer];
   for(const value of candidates){
     let name=String(value||'').replace(/&#x20;|&nbsp;/gi,' ').replace(/^#+\s*/,'').trim();
-    if(!name)continue;
-    if(/^(?:ETHERNET|USB|WSD|SN|S\/N|FN|SVCID|IP|MAC)\b/i.test(name))continue;
+    if(!name||isPrinterTransportValue(name))continue;
     return name;
   }
   return '';
@@ -3554,7 +3564,7 @@ function renderDuplicateNames(){
         ?'<div style="font-size:10.5px;color:#8193a9;margin-top:2px" title="Nombre/modelo informado por el agente; el alias no lo modifica">nombre del agente: '+escapeHtml(printerInventoryLabel(r))+'</div>':'';
       return '<tr>'
         +'<td><button class="printer-model-link" type="button" onclick="openPrinterDetail('+escapeHtml(JSON.stringify(String(r.printer_id)))+')" title="Abrir ficha completa">'+escapeHtml(m.name)+'</button>'+tail+agentNote+'</td>'
-        +'<td>'+escapeHtml(String(r.model||r.display_name||'—'))+'</td>'
+        +'<td>'+escapeHtml(printerInventoryLabel(r)||'—')+'</td>'
         +'<td>'+escapeHtml(connectionLabel(r))+'</td>'
         +'<td>'+escapeHtml(String(r.agent_code||r.machine_name||'—'))+'</td>'
         +'<td>'+escapeHtml(printerIpPort(r))+'</td>'
@@ -3789,7 +3799,7 @@ function renderRetiredFleet(){
     const rowTargetProjects=targetProjects.filter(tp=>p&&String(tp.company_id)===String(p.company_id));
     const rowTargetOptions=rowTargetProjects.map(tp=>'<option value="'+escapeHtml(tp.id)+'">'+escapeHtml(tp.name||'Proyecto sin nombre')+'</option>').join('');
     const companyName=c?(c.company_code==='AT-EMP-000001'?'Operación interna A&T':c.name):'—';
-    const model=[r.manufacturer,r.model].filter(Boolean).join(' · ')||'—';
+    const model=[r.manufacturer,printerInventoryLabel(r)].filter(v=>v&&v!=='Ver ficha').join(' · ')||'—';
     const connection=[connectionLabel(r),printerIpPort(r)].filter(v=>v&&v!=='—').join(' · ')||'—';
     const countValue=r.page_count==null?'—':Number(r.page_count).toLocaleString('es-PY');
     const last=r.counter_reading_at||r.reading_at||r.last_seen_at;
@@ -3923,7 +3933,7 @@ function inventoryMapUrl(r){
 }
 const INVENTORY_COLUMN_DEFS=[
   {id:'project',label:'Proyecto / Contrato',value:()=>projects.find(p=>String(p.id)===String(currentProjectId))?.name||'—'},
-  {id:'model',label:'Modelo',value:r=>r.model||r.printer||visiblePrinterName(r)||'—'},
+  {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
   {id:'manufacturer',label:'Fabricante',value:r=>inventoryFirstValue(r,['manufacturer','vendor','make'])||'—'},
   {id:'serial',label:'Número de Serie',value:r=>printerSerialValue(r)||'—'},
   {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
@@ -4427,7 +4437,7 @@ const COUNTER_METRIC_DEFS=[
 ];
 const COUNTER_COLUMN_DEFS=[
   {id:'project',label:'Proyecto / Contrato',value:r=>r.project_name||'—'},
-  {id:'model',label:'Modelo',value:r=>r.model||r.printer||'—'},
+  {id:'model',label:'Modelo',value:r=>printerInventoryLabel(r)||'—'},
   {id:'serial',label:'Número de Serie',value:r=>r.serial_number||'—'},
   {id:'reference',label:'Referencia',value:r=>inventoryFirstValue(r,['reference','asset_reference','asset_tag','inventory_number','reference_code'])||'—'},
   {id:'location',label:'Localización',value:r=>inventoryFirstValue(r,['location','city','description','address'])||'—'},
