@@ -1,0 +1,124 @@
+name: Build A&T Printer Agent 0.5.4
+
+on:
+  push:
+    branches:
+      - agent-v0.5.4-build
+    paths:
+      - .github/workflows/build-agent-v0.5.4.yml
+      - agent/patches/agent-v0.5.4.patch.gz
+      - agent/verify-build.ps1
+      - agent/RELEASE_NOTES_0.5.4.md
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout build definition
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download and verify official 0.5.3 source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/pepifer82-cyber/at-printix/releases/download/agent-v0.5.3/agent-v0.5.3-source.zip'
+          $zip = Join-Path $env:RUNNER_TEMP 'agent-v0.5.3-source.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          $expected = 'cf15688c17042b3f7eebfb57ca96f7e44f794882c4d33eb3eb2afdee0f9ec818'
+          Write-Host "Source SHA256: $hash"
+          if ($hash -ne $expected) { throw "Official source hash mismatch." }
+          $srcRoot = Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.3'
+          Expand-Archive -Path $zip -DestinationPath $env:GITHUB_WORKSPACE -Force
+          if (-not (Test-Path (Join-Path $srcRoot 'build.bat'))) { throw 'Source root is incomplete.' }
+          "SOURCE_ROOT=$srcRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Apply 0.5.4 source changes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $patchGz = Join-Path $env:GITHUB_WORKSPACE 'agent/patches/agent-v0.5.4.patch.gz'
+          $patch = Join-Path $env:RUNNER_TEMP 'agent-v0.5.4.patch'
+          $inputStream = [System.IO.File]::OpenRead($patchGz)
+          try {
+            $gzip = [System.IO.Compression.GzipStream]::new($inputStream, [System.IO.Compression.CompressionMode]::Decompress)
+            try {
+              $outputStream = [System.IO.File]::Create($patch)
+              try { $gzip.CopyTo($outputStream) } finally { $outputStream.Dispose() }
+            } finally { $gzip.Dispose() }
+          } finally { $inputStream.Dispose() }
+          git -C $env:SOURCE_ROOT apply --check -p2 $patch
+          if ($LASTEXITCODE -ne 0) { throw 'Patch validation failed.' }
+          git -C $env:SOURCE_ROOT apply -p2 $patch
+          if ($LASTEXITCODE -ne 0) { throw 'Patch application failed.' }
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'agent/verify-build.ps1') (Join-Path $env:SOURCE_ROOT 'verify-build.ps1') -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'agent/RELEASE_NOTES_0.5.4.md') (Join-Path $env:SOURCE_ROOT 'RELEASE_NOTES_0.5.4.md') -Force
+          Remove-Item (Join-Path $env:SOURCE_ROOT 'RELEASE_NOTES_0.5.3.md') -Force
+
+      - name: Create source archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $srcZip = Join-Path $env:GITHUB_WORKSPACE 'agent-v0.5.4-source.zip'
+          Compress-Archive -Path (Join-Path $env:SOURCE_ROOT '*') -DestinationPath $srcZip -CompressionLevel Optimal
+          if (-not (Test-Path $srcZip)) { throw 'Source archive was not created.' }
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          $iscc = Join-Path $env:ProgramFiles(x86) 'Inno Setup 6/ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw 'ISCC.exe not found after installation.' }
+
+      - name: Build, test and verify x64/x86 installers
+        shell: cmd
+        run: |
+          cd /d "%GITHUB_WORKSPACE%\agent-v0.5.3"
+          call build.bat
+          if errorlevel 1 exit /b 1
+          if not exist "Instalar_ATPrinterAgent_v0.5.4.exe" exit /b 1
+          if not exist "SHA256SUMS.txt" exit /b 1
+
+      - name: Upload build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: AandT-Printer-Agent-0.5.4
+          path: |
+            agent-v0.5.3/Instalar_ATPrinterAgent_v0.5.4.exe
+            agent-v0.5.3/SHA256SUMS.txt
+            agent-v0.5.4-source.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'agent-v0.5.4'
+          gh release create $tag `
+            'agent-v0.5.3/Instalar_ATPrinterAgent_v0.5.4.exe' `
+            'agent-v0.5.3/SHA256SUMS.txt' `
+            'agent-v0.5.4-source.zip' `
+            --repo 'pepifer82-cyber/at-printix' `
+            --target 'agent-v0.5.4-build' `
+            --title 'A&T Printer Agent 0.5.4' `
+            --notes-file 'agent-v0.5.3/RELEASE_NOTES_0.5.4.md'
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }
